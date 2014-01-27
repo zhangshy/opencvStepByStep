@@ -11,5 +11,8 @@ namespace zsyTestMethod {
 
 	//将RGB图像转化为灰度图像
 	Mat changRGB2Gray(const Mat src);
+
+	//直方图均衡
+	Mat histogramEqualizate(const Mat src);
 }
 #endif
