@@ -232,7 +232,10 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
-	//RGB图像直方图均衡，在HSV模式下将V均衡化
+	/* 
+	   RGB图像直方图均衡，在HSV模式下将V均衡化
+	   测试后发现有些颜色变浅或变浅了？？效果不是很理想
+	*/
 	Mat rgbHistogramEqualizate(const Mat src) {
 		int nrow = src.rows;
 		int ncol = src.cols;
@@ -270,16 +273,13 @@ namespace zsyTestMethod {
 using namespace zsyTestMethod;
 int main (int argc, char** argv) {
 	cout << getTestMethodVersion() << endl;
-	Mat image = imread("../out/test.jpg", CV_LOAD_IMAGE_COLOR);
+	Mat image = imread("../out/test2.jpg", CV_LOAD_IMAGE_COLOR);
 	if (!image.data) {
 		cout <<  "Could not open or find the image" << std::endl ;
 		return -1;
 	}
 
-	Mat tmp = rgb2hsv(image);
-	imshow("Display tmp", tmp);
-//	waitKey(0);
-	Mat dst = hsv2rgb(tmp);
+	Mat dst = rgbHistogramEqualizate(image);
 	imshow("Display dst", dst);
 	waitKey(0);
 	return 0;
