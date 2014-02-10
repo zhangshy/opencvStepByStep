@@ -21,7 +21,10 @@ namespace zsyTestMethod {
 	//HSV转换为RGB
 	Mat hsv2rgb(const Mat src);
 
-	//RGB图像均衡
+	//RGB图像均衡，V通道均衡
 	Mat rgbHistogramEqualizate(const Mat src);
+	
+	//RGB图像均衡，灰度均衡
+	Mat rgbHistogramEqualizateGray(const Mat src);
 }
 #endif

@@ -266,6 +266,52 @@ namespace zsyTestMethod {
 		return dst;	
 	}
 
+	//彩色图像均衡，转化为灰度图像均衡后按原比例还原为RGB图像
+	//效果好像还不如均衡hsv中的v通道？？
+	Mat rgbHistogramEqualizateGray(const Mat src) {
+		int nrow = src.rows;
+		int ncol = src.cols;
+		int i=0, j=0;
+		Mat graySrc;
+#if 0
+		//1. 转化为灰度图像
+		graySrc = changRGB2Gray(src);
+#else
+		//将图像的3个通道相加后计算总体均衡
+		graySrc = Mat::zeros(nrow, ncol, CV_8UC1);
+		for (i=0; i<nrow; i++) {
+			uchar* data_graySrc = graySrc.ptr<uchar>(i);
+			for (j=0; j<ncol; j++) {
+				Vec3b bgrSrc = src.at<Vec3b>(i, j);
+				data_graySrc[j] = (bgrSrc[0]+bgrSrc[1]+bgrSrc[2]) / 3;
+			}
+		}
+#endif
+		//2. 灰度图像均衡
+		Mat grayDst = histogramEqualizate(graySrc);
+		//3. 按照原图像RGB的比例还原回彩色图像
+		Mat dst(nrow, ncol, CV_8UC3, Scalar(0, 0, 0));
+		int tb=0, tg=0, tr=0;
+		for (i=0; i<nrow; i++) {
+			uchar* data_grayDst = grayDst.ptr<uchar>(i);
+			uchar* data_graySrc = graySrc.ptr<uchar>(i);
+			for (j=0; j<ncol; j++) {
+				Vec3b bgrSrc = src.at<Vec3b>(i, j);
+				Vec3b &bgrDst = dst.at<Vec3b>(i, j);
+				//按照比例回复bgrSrc/data_graySrc = bgrDst/data_grayDst -->  bgrDst=bgrSrc/data_graySrc*data_grayDst
+				if (data_graySrc[j] != 0) {
+					tb = bgrSrc[0]*data_grayDst[j]/data_graySrc[j];
+					tg = bgrSrc[1]*data_grayDst[j]/data_graySrc[j];
+					tr = bgrSrc[2]*data_grayDst[j]/data_graySrc[j];
+					bgrDst[0] = tb>255 ? 255 : (tb<0 ? 0 :tb);	//这里比较重要，消除颜色怪异的点
+					bgrDst[1] = tg>255 ? 255 : (tg<0 ? 0 :tg);
+					bgrDst[2] = tr>255 ? 255 : (tr<0 ? 0 :tr);
+				}
+
+			}
+		}
+		return dst;
+	}
 }
 
 
@@ -280,7 +326,9 @@ int main (int argc, char** argv) {
 	}
 
 	Mat dst = rgbHistogramEqualizate(image);
+	Mat dst2 = rgbHistogramEqualizateGray(image);
 	imshow("Display dst", dst);
+	imshow("Display dst2", dst2);
 	waitKey(0);
 	return 0;
 }
