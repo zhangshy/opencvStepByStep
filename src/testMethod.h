@@ -8,7 +8,7 @@ using namespace cv;
 #define PERNUM 8
 #define HE 		100
 #define AHE		101
-#define CLAHE	102
+#define CLAHEMETHOD	102
 
 namespace zsyTestMethod {
 	//获取版本信息
@@ -25,13 +25,13 @@ namespace zsyTestMethod {
 
 	//RGB转换为HSV
 	Mat rgb2hsv(const Mat src);
-	
+
 	//HSV转换为RGB
 	Mat hsv2rgb(const Mat src);
 
 	//RGB图像均衡，V通道均衡
 	Mat rgbHistogramEqualizate(const Mat src, int method);
-	
+
 	//RGB图像均衡，灰度均衡
 	Mat rgbHistogramEqualizateGray(const Mat src, int method);
 }

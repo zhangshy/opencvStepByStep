@@ -293,6 +293,13 @@ namespace zsyTestMethod {
 			case AHE:
 				vDst = adaptHistEqual(vSrc);
 				break;
+            case CLAHEMETHOD: {
+                //使用opencv自带的CLAHE进行测试
+                Ptr<CLAHE> clahe = createCLAHE();
+                clahe->setClipLimit(2.0);
+                clahe->apply(vSrc, vDst);
+                break;
+            }
 			default:
 				vDst = histogramEqualizate(vSrc);
 		}
@@ -382,9 +389,11 @@ int main (int argc, char** argv) {
 	Mat dstHE = rgbHistogramEqualizate(image, HE);
 //	Mat dst2 = rgbHistogramEqualizateGray(image, HE);
 	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
+	Mat dstCLAHE = rgbHistogramEqualizate(image, CLAHEMETHOD);
 	imshow("Display HE", dstHE);
 //	imshow("Display dst2", dst2);
 	imshow("Display AHE", dstAHE);
+	imshow("Display CLAHE", dstCLAHE);
 	waitKey(0);
 	return 0;
 }
