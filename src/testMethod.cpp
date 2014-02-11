@@ -30,7 +30,7 @@ namespace zsyTestMethod {
 		}
 		return dst;
 	}
-	
+
 	/**
 	  输入为灰度图像
 	  灰度直方图均衡化
@@ -55,7 +55,7 @@ namespace zsyTestMethod {
 				pixelValue[data_src[j]]++;	//计算各灰度值出现的次数
 			}
 		}
-		
+
 		cdfPixelValue[0] = pixelValue[0];
 		for (i=1; i<256; i++) {
 			cdfPixelValue[i] = cdfPixelValue[i-1] + pixelValue[i];
@@ -78,7 +78,40 @@ namespace zsyTestMethod {
 				data_out[j] = ((cdfPixelValue[data_in[j]]-cdfMin)*255)/divNum;
 			}
 		}
-		
+
+		return dst;
+	}
+
+	//1. 将图像分成8*8块
+	Mat adaptHistEqual(const Mat src) {
+		int nrow = src.rows;
+		int ncol = src.cols;
+		Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
+		//分成8*8块
+		int perRow = nrow/PERNUM;
+		int perCol = ncol/PERNUM;
+		Mat tmpSrc = Mat::zeros(perRow, perCol, CV_8UC1);
+		int i=0, j=0;
+		int r=0, c=0;
+		for (i=0; i<PERNUM; i++) {
+			for (j=0; j<PERNUM; j++) {
+				for (r=0; r<perRow; r++) {
+					const uchar* data_in = src.ptr<uchar>(perRow*i+r);
+					uchar* data_out = tmpSrc.ptr<uchar>(r);
+					for (c=0; c<perCol; c++) {
+						data_out[c] = data_in[perCol*j+c];
+					}
+				}
+				Mat tmpDst = histogramEqualizate(tmpSrc);
+				for (r=0; r<perRow; r++) {
+					const uchar* data_in = tmpDst.ptr<uchar>(r);
+					uchar* data_out = dst.ptr<uchar>(perRow*i+r);
+					for (c=0; c<perCol; c++) {
+						data_out[perCol*j+c] = data_in[c];
+					}
+				}
+			}
+		}
 		return dst;
 	}
 
@@ -118,7 +151,7 @@ namespace zsyTestMethod {
 		}
 		*h *= 60.0;
 		if (*h<0)
-			*h+=360;			
+			*h+=360;
 	}
 
 	//参考http://zh.wikipedia.org/wiki/HSL%E5%92%8CHSV%E8%89%B2%E5%BD%A9%E7%A9%BA%E9%97%B4#.E4.BB.8ERGB.E5.88.B0HSL.E6.88.96HSV.E7.9A.84.E8.BD.AC.E6.8D.A2
@@ -139,12 +172,12 @@ namespace zsyTestMethod {
 				Vec3f bgrSrc = tmpMat.at<Vec3f>(i, j);	//BGR顺序排列
 				b = bgrSrc[0];
 				g = bgrSrc[1];
-				r = bgrSrc[2];	
+				r = bgrSrc[2];
 				perrgb2hsv(r, g, b, &h, &s, &v);
 				Vec3f &bgrDst = dst.at<Vec3f>(i, j);
 				bgrDst[0] = h;
 				bgrDst[1] = s;
-				bgrDst[2] = v;				
+				bgrDst[2] = v;
 			}
 		}
 		return dst;
@@ -217,26 +250,26 @@ namespace zsyTestMethod {
 		float h, s, v;
 		for (i=0; i<nrow; i++) {
 			for (j=0; j<ncol; j++) {
-				Vec3f bgrSrc = src.at<Vec3f>(i, j);	
+				Vec3f bgrSrc = src.at<Vec3f>(i, j);
 				h = bgrSrc[0];
 				s = bgrSrc[1];
-				v = bgrSrc[2];	
+				v = bgrSrc[2];
 				perhsv2rgb(h, s, v, &r, &g, &b);
 				Vec3f &bgrDst = tmpMat.at<Vec3f>(i, j);	//BGR顺序排列
 				bgrDst[0] = b;
 				bgrDst[1] = g;
-				bgrDst[2] = r;				
+				bgrDst[2] = r;
 			}
 		}
 		tmpMat.convertTo(dst, CV_8UC3, 255);
 		return dst;
 	}
 
-	/* 
+	/*
 	   RGB图像直方图均衡，在HSV模式下将V均衡化
 	   测试后发现有些颜色变浅或变浅了？？效果不是很理想
 	*/
-	Mat rgbHistogramEqualizate(const Mat src) {
+	Mat rgbHistogramEqualizate(const Mat src, int method) {
 		int nrow = src.rows;
 		int ncol = src.cols;
 		//1. 将RGB转化为HSV，CV_32FC3，v:[0, 1]
@@ -252,7 +285,17 @@ namespace zsyTestMethod {
 			}
 		}
 		//V通道直方图均衡化
-		Mat vDst = histogramEqualizate(vSrc);
+		Mat vDst;
+	    switch (method) {
+			case HE:
+				vDst = histogramEqualizate(vSrc);
+				break;
+			case AHE:
+				vDst = adaptHistEqual(vSrc);
+				break;
+			default:
+				vDst = histogramEqualizate(vSrc);
+		}
 		//将V通道放入hsv中, v: [0, 1]
 		for (i=0; i<nrow; i++) {
 			uchar* data_out = vDst.ptr<uchar>(i);
@@ -263,12 +306,12 @@ namespace zsyTestMethod {
 		}
 		//3. 将HSV转化为RGB
 		Mat dst = hsv2rgb(hsvSrc);
-		return dst;	
+		return dst;
 	}
 
 	//彩色图像均衡，转化为灰度图像均衡后按原比例还原为RGB图像
 	//效果好像还不如均衡hsv中的v通道？？
-	Mat rgbHistogramEqualizateGray(const Mat src) {
+	Mat rgbHistogramEqualizateGray(const Mat src, int method) {
 		int nrow = src.rows;
 		int ncol = src.cols;
 		int i=0, j=0;
@@ -288,7 +331,18 @@ namespace zsyTestMethod {
 		}
 #endif
 		//2. 灰度图像均衡
-		Mat grayDst = histogramEqualizate(graySrc);
+		Mat grayDst;
+	    switch (method) {
+			case HE:
+				grayDst = histogramEqualizate(graySrc);
+				break;
+			case AHE:
+				grayDst = adaptHistEqual(graySrc);
+				break;
+			default:
+				grayDst = histogramEqualizate(graySrc);
+		}
+		//将V通道放入hsv中, v: [0, 1]
 		//3. 按照原图像RGB的比例还原回彩色图像
 		Mat dst(nrow, ncol, CV_8UC3, Scalar(0, 0, 0));
 		int tb=0, tg=0, tr=0;
@@ -325,10 +379,12 @@ int main (int argc, char** argv) {
 		return -1;
 	}
 
-	Mat dst = rgbHistogramEqualizate(image);
-	Mat dst2 = rgbHistogramEqualizateGray(image);
-	imshow("Display dst", dst);
-	imshow("Display dst2", dst2);
+	Mat dstHE = rgbHistogramEqualizate(image, HE);
+//	Mat dst2 = rgbHistogramEqualizateGray(image, HE);
+	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
+	imshow("Display HE", dstHE);
+//	imshow("Display dst2", dst2);
+	imshow("Display AHE", dstAHE);
 	waitKey(0);
 	return 0;
 }
