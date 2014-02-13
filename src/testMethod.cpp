@@ -83,7 +83,10 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
-	//1. 将图像分成8*8块
+	/**
+	*@brief AHE自适应直方图均衡化
+	* 1. 将图像分成8*8块
+	*/
 	Mat adaptHistEqual(const Mat src) {
 		int nrow = src.rows;
 		int ncol = src.cols;
@@ -379,29 +382,42 @@ namespace zsyTestMethod {
 
     /**
 	*@brief 利用双线性插值法对图像进行缩放
+	*
+	* 1. 图像的四角上的点的值直接复制
+	* 2. 四条边的值使用线性插值
+	* 3. 中间的图像使用双线性插值
 	*@param resize 缩放倍数
 	*/
 	Mat resizeMat(const Mat src, float resize)
 	{
+	    //原图像行列数，应为要取数组，数组索引最大值为数组长度-1
 	    int nrowSrc = src.rows-1;
 	    int ncolSrc = src.cols-1;
+	    //目标图像行列数
         int nrow = src.rows*resize;
         int ncol = src.cols*resize;
         Mat dst = Mat::zeros(nrow, ncol, CV_8UC3);
-#if 1
         int i=0, j=0;
         for (i=0; i<nrow; i++) {
             for (j=0; j<ncol; j++) {
+                //计算目标图像点在原图像对应的位置
                 float srcRow = i/resize;
                 float srcCol = j/resize;
                 int x1 = srcRow;
-                int x2 = srcRow+1;
+                int x2 = x1+1;
                 int y1 = srcCol;
-                int y2 = srcCol+1;
-                x1 = x1>nrowSrc ? nrowSrc : x1;
-                x2 = x2>nrowSrc ? nrowSrc : x2;
-                y1 = y1>ncolSrc ? ncolSrc : y1;
-                y2 = y2>ncolSrc ? ncolSrc : y2;
+                int y2 = y1+1;
+                /** 注意使用双线性插值时，目标图像上点映射到原图像上时四个点值的获取 */
+                if (x1>=nrowSrc) {
+                    x1 = nrowSrc;
+                    srcRow = nrowSrc;
+                    x2 = nrowSrc;
+                }
+                if (y1>=ncolSrc) {
+                    y1 = ncolSrc;
+                    srcCol = ncolSrc;
+                    y2 = ncolSrc;
+                }
                 Vec3b bgrSrc11 = src.at<Vec3b>(x1, y1);
 //                cout << " x: " << nrowSrc << " y: " << ncolSrc << " x1: " << x1 << " y2: " << y2 << endl;
                 Vec3b bgrSrc12 = src.at<Vec3b>(x1, y2);
@@ -413,7 +429,6 @@ namespace zsyTestMethod {
                 bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[2], bgrSrc12[2], bgrSrc21[2], bgrSrc22[2], &bgrDst[2]);
             }
         }
-#endif
         return dst;
 	}
 }
@@ -433,7 +448,7 @@ int main (int argc, char** argv) {
 //	Mat dst2 = rgbHistogramEqualizateGray(image, HE);
 	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
 	Mat dstCLAHE = rgbHistogramEqualizate(image, CLAHEMETHOD);
-	Mat dstResize = resizeMat(image, 2.0);
+	Mat dstResize = resizeMat(image, 1.7);
 	imshow("Display HE", dstHE);
 //	imshow("Display dst2", dst2);
 	imshow("Display AHE", dstAHE);

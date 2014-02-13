@@ -5,6 +5,7 @@
 #include "highgui.h"
 using namespace cv;
 
+/** AHE算法时将图像分成PERNUM*PERNUM块 */
 #define PERNUM 8
 #define HE 		100
 #define AHE		101
