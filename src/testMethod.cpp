@@ -1,5 +1,6 @@
 #include <iostream>
 #include "testMethod.h"
+#include "mathTest.h"
 
 using namespace std;
 
@@ -265,7 +266,7 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
-	/*
+	/**
 	   RGB图像直方图均衡，在HSV模式下将V均衡化
 	   测试后发现有些颜色变浅或变浅了？？效果不是很理想
 	*/
@@ -316,8 +317,10 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
-	//彩色图像均衡，转化为灰度图像均衡后按原比例还原为RGB图像
-	//效果好像还不如均衡hsv中的v通道？？
+	/**
+	* 彩色图像均衡，转化为灰度图像均衡后按原比例还原为RGB图像
+	* 效果好像还不如均衡hsv中的v通道？？
+	*/
 	Mat rgbHistogramEqualizateGray(const Mat src, int method) {
 		int nrow = src.rows;
 		int ncol = src.cols;
@@ -373,6 +376,46 @@ namespace zsyTestMethod {
 		}
 		return dst;
 	}
+
+    /**
+	*@brief 利用双线性插值法对图像进行缩放
+	*@param resize 缩放倍数
+	*/
+	Mat resizeMat(const Mat src, float resize)
+	{
+	    int nrowSrc = src.rows-1;
+	    int ncolSrc = src.cols-1;
+        int nrow = src.rows*resize;
+        int ncol = src.cols*resize;
+        Mat dst = Mat::zeros(nrow, ncol, CV_8UC3);
+#if 1
+        int i=0, j=0;
+        for (i=0; i<nrow; i++) {
+            for (j=0; j<ncol; j++) {
+                float srcRow = i/resize;
+                float srcCol = j/resize;
+                int x1 = srcRow;
+                int x2 = srcRow+1;
+                int y1 = srcCol;
+                int y2 = srcCol+1;
+                x1 = x1>nrowSrc ? nrowSrc : x1;
+                x2 = x2>nrowSrc ? nrowSrc : x2;
+                y1 = y1>ncolSrc ? ncolSrc : y1;
+                y2 = y2>ncolSrc ? ncolSrc : y2;
+                Vec3b bgrSrc11 = src.at<Vec3b>(x1, y1);
+//                cout << " x: " << nrowSrc << " y: " << ncolSrc << " x1: " << x1 << " y2: " << y2 << endl;
+                Vec3b bgrSrc12 = src.at<Vec3b>(x1, y2);
+                Vec3b bgrSrc21 = src.at<Vec3b>(x2, y1);
+                Vec3b bgrSrc22 = src.at<Vec3b>(x2, y2);
+                Vec3b &bgrDst = dst.at<Vec3b>(i, j);
+                bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[0], bgrSrc12[0], bgrSrc21[0], bgrSrc22[0], &bgrDst[0]);
+                bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[1], bgrSrc12[1], bgrSrc21[1], bgrSrc22[1], &bgrDst[1]);
+                bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[2], bgrSrc12[2], bgrSrc21[2], bgrSrc22[2], &bgrDst[2]);
+            }
+        }
+#endif
+        return dst;
+	}
 }
 
 
@@ -390,10 +433,12 @@ int main (int argc, char** argv) {
 //	Mat dst2 = rgbHistogramEqualizateGray(image, HE);
 	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
 	Mat dstCLAHE = rgbHistogramEqualizate(image, CLAHEMETHOD);
+	Mat dstResize = resizeMat(image, 2.0);
 	imshow("Display HE", dstHE);
 //	imshow("Display dst2", dst2);
 	imshow("Display AHE", dstAHE);
 	imshow("Display CLAHE", dstCLAHE);
+	imshow("Display resize", dstResize);
 	waitKey(0);
 	return 0;
 }

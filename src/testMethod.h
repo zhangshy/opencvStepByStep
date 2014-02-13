@@ -34,5 +34,11 @@ namespace zsyTestMethod {
 
 	//RGB图像均衡，灰度均衡
 	Mat rgbHistogramEqualizateGray(const Mat src, int method);
+
+	/**
+	*@brief 利用双线性插值法对图像进行缩放
+	*@param resize 缩放倍数
+	*/
+	Mat resizeMat(const Mat src, float resize);
 }
 #endif
