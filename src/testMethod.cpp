@@ -32,10 +32,84 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
+    /**
+    * 获取矩阵直方图均衡的变换函数，变换函数为[256]的数组，通过查表得到变换值
+    *@param needAll true时Mat中为出现的点通过线性插值法计算变换值
+    */
+    bool getHistEqualConvert(const Mat src, uchar* convertBuf, bool needAll)
+    {
+        int nrow = src.rows;
+		int ncol = src.cols;
+		int channel = src.channels();
+		if (channel != 1) {
+			cout << "请输入单通道矩阵，当前图像为channel is: " << channel << endl;
+			return false;
+		}
+		/** appearInMat存储值为当前索引值的点在Mat中是否出现，0未出现，1出现 */
+		uchar appearInMat[256] = {0};
+		int pixelValue[256] = {0};	//统计各灰度值出现次数
+		int cdfPixelValue[256] = {0};	///计算累计分布函数cdf
+		int i=0, j=0;
+		for (i=0; i<nrow; i++) {
+			const uchar* data_src = src.ptr<uchar>(i);	//输入的每一行
+			for (j=0; j<ncol; j++) {
+				pixelValue[data_src[j]]++;	//计算各灰度值出现的次数
+				appearInMat[data_src[j]] = 1;   //表示该索引值在Mat中出现
+			}
+		}
+
+		cdfPixelValue[0] = pixelValue[0];
+		for (i=1; i<256; i++) {
+			cdfPixelValue[i] = cdfPixelValue[i-1] + pixelValue[i];
+		}
+		/** 变换函数公式：(cdf(v)-cdfmin)*(L-1)/((M*N)-cdfmin) M N分别代表图像的长宽像素个数，L为灰度级数，本例图像8位深度，灰度级数为 2^8=256 */
+		int totalPixelNum = nrow*ncol;	//总像素数
+		int cdfMin = 0;
+		/**
+		* 对于Mat中出现的点直接利用公式计算对应变换值
+		* 对于Mat中未出现的点利用线性插值法计算变换值？？
+        */
+		for (i=0; i<256; i++) {
+			if (cdfPixelValue[i]>0) {
+				cdfMin = cdfPixelValue[i];
+				cout << "cdfMin: " << cdfMin << ";;i: " << i << endl;
+				break;
+			}
+			convertBuf[i] = 0;
+		}
+		int divNum = totalPixelNum - cdfMin;
+		/** appearData保存出现的点，appearNums出现的点的个数*/
+		uchar appearData[256] = {0};
+		uchar appearNums = 0;
+        for (i=cdfMin; i<256; i++) {
+            if (appearInMat[i]) {
+                convertBuf[i] = ((cdfPixelValue[i]-cdfMin)*255)/divNum;
+                appearData[appearNums] = i;
+                appearNums++;
+            }
+        }
+
+        /** 小于cdfMin的点0, 大于cdfMax的点为255*/
+        uchar indexStart = 0;
+        uchar indexEnd = 0;
+        int k = 0;
+        if (needAll) {
+            /** 在出现的点之间的点使用线性插值法 */
+            for (k=0; k<appearNums-1; k++) {
+                indexStart = appearData[k];
+                indexEnd = appearData[k+1];
+                for (i=indexStart; i<indexEnd; i++) {
+                    convertBuf[i] = convertBuf[indexStart] + (i-indexStart)*(convertBuf[indexEnd]-convertBuf[indexStart])/(indexEnd-indexStart);
+                }
+            }
+        }
+        return true;
+    }
+
 	/**
-	  输入为灰度图像
-	  灰度直方图均衡化
-	  参考： http://zh.wikipedia.org/wiki/%E7%9B%B4%E6%96%B9%E5%9B%BE%E5%9D%87%E8%A1%A1%E5%8C%96
+	* 输入为单通道Mat, 直方图均衡化
+    * 参考： http://zh.wikipedia.org/wiki/%E7%9B%B4%E6%96%B9%E5%9B%BE%E5%9D%87%E8%A1%A1%E5%8C%96
+    * 修改：因为变换函数是由[0, 255]-->[0, 255]，可以先创建数组并计算对应值，通过查表即可获得对应变换值
 	*/
 	Mat histogramEqualizate(const Mat src) {
 		//取得像素点的行列数和通道数
@@ -44,39 +118,19 @@ namespace zsyTestMethod {
 		int channel = src.channels();
 		Mat dst(nrow, ncol, CV_8UC1);	//直方图均衡化后的图像
 		if (channel != 1) {
-			cout << "请输入单通道灰度图像，当前图像为channel is: " << channel << endl;
+			cout << "请输入单通道矩阵，当前图像为channel is: " << channel << endl;
 			return dst;
 		}
-		int pixelValue[256] = {0};	//统计各灰度值出现次数
-		int cdfPixelValue[256] = {0};	//累计分布函数
-		int i=0, j=0;
-		for (i=0; i<nrow; i++) {
-			const uchar* data_src = src.ptr<uchar>(i);	//输入的每一行
-			for (j=0; j<ncol; j++) {
-				pixelValue[data_src[j]]++;	//计算各灰度值出现的次数
-			}
-		}
 
-		cdfPixelValue[0] = pixelValue[0];
-		for (i=1; i<256; i++) {
-			cdfPixelValue[i] = cdfPixelValue[i-1] + pixelValue[i];
-		}
-		//公式：(cdf(v)-cdfmin)*(L-1)/((M*N)-cdfmin) M N分别代表图像的长宽像素个数，L为灰度级数，本例图像8位深度，灰度级数为 2^8=256
-		int totalPixelNum = nrow*ncol;	//总像素数
-		int cdfMin = 0;
-		for (i=0; i<256; i++) {
-			if (cdfPixelValue[i]>0) {
-				cdfMin = cdfPixelValue[i];
-				cout << "cdfMin: " << cdfMin << ";;i: " << i << endl;
-				break;
-			}
-		}
-		int divNum = totalPixelNum - cdfMin;
+        uchar convertBuf[256] = {0};
+        getHistEqualConvert(src, convertBuf, true);
+        int i=0, j=0;
 		for (i=0; i<nrow; i++) {
 			const uchar* data_in = src.ptr<uchar>(i);
 			uchar* data_out = dst.ptr<uchar>(i);
 			for (j=0; j<ncol; j++) {
-				data_out[j] = ((cdfPixelValue[data_in[j]]-cdfMin)*255)/divNum;
+//				data_out[j] = ((cdfPixelValue[data_in[j]]-cdfMin)*255)/divNum;
+                data_out[j] = convertBuf[data_in[j]];
 			}
 		}
 
@@ -94,6 +148,10 @@ namespace zsyTestMethod {
 		//分成8*8块
 		int perRow = nrow/PERNUM;
 		int perCol = ncol/PERNUM;
+		/** 对应块的变换函数 */
+		uchar histEqualConvertBufs[PERNUM*PERNUM][256] = {0};
+		/** 对应块的中心点(x,y) */
+		int areaCenters[PERNUM*PERNUM][2] = {0};
 		Mat tmpSrc = Mat::zeros(perRow, perCol, CV_8UC1);
 		int i=0, j=0;
 		int r=0, c=0;
@@ -107,6 +165,9 @@ namespace zsyTestMethod {
 					}
 				}
 				Mat tmpDst = histogramEqualizate(tmpSrc);
+				areaCenters[i*PERNUM+j][0] = i*perRow + perRow/2;
+				areaCenters[i*PERNUM+j][1] = j*perCol + perCol/2;
+				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], true);
 				for (r=0; r<perRow; r++) {
 					const uchar* data_in = tmpDst.ptr<uchar>(r);
 					uchar* data_out = dst.ptr<uchar>(perRow*i+r);
@@ -116,46 +177,16 @@ namespace zsyTestMethod {
 				}
 			}
 		}
-		return dst;
-	}
+		int x1=0, x2=0, y1=0, y2=0;
+		float xi=0,yi=0;
+		for (i=0; i<nrow; i++) {
+            for (j=0; j<ncol; j++) {
+                xi = i*1.0/perRow;
+                yi = j*1.0/perCol;
 
-	//像素点处理
-	void perrgb2hsv(float r, float g, float b, float* h, float* s, float* v) {
-		// r,g,b values are from 0 to 1
-		// h = [0,360], s = [0,1], v = [0,1]
-		// if s == 0, then h = -1 (undefined)
-		float min, max, delta,tmp;
-		tmp = r>g ? g : r;
-		min = tmp>b ? b : tmp;
-		tmp = r>g ? r : g;
-		max = tmp>b ? tmp : b;
-		*v = max;
-		delta = max - min;
-		if (max!=0)
-			*s = delta / max;
-		else {
-			// r = g = b = 0 // s = 0, v is undefined
-			*s = 0;
-			*h = 0;
-			return;
+            }
 		}
-		if (delta == 0) {
-			*h=0;
-			return;
-		}else if (r == max) {
-			if (g>=b) {
-				*h = (g-b)/delta;
-			}else {
-				*h = (g-b)/delta + 6.0;
-			}
-		}else if (g == max) {
-			*h = 2.0 + (b-r)/delta;
-		}else if (b == max) {
-			*h = 4.0 + (r-g)/delta;
-		}
-		*h *= 60.0;
-		if (*h<0)
-			*h+=360;
+		return dst;
 	}
 
 	//参考http://zh.wikipedia.org/wiki/HSL%E5%92%8CHSV%E8%89%B2%E5%BD%A9%E7%A9%BA%E9%97%B4#.E4.BB.8ERGB.E5.88.B0HSL.E6.88.96HSV.E7.9A.84.E8.BD.AC.E6.8D.A2
@@ -185,60 +216,6 @@ namespace zsyTestMethod {
 			}
 		}
 		return dst;
-	}
-
-	//像素点处理
-	void perhsv2rgb(float h, float s, float v, float* r, float* g, float* b) {
-		int i;
-		float f, p, q, t;
-
-		if( s == 0 )
-		{
-		// achromatic (grey)
-		    *r = *g = *b = v;
-		    return;
-		}
-
-		h /= 60; // sector 0 to 5
-		i = floor( h );
-		f = h - i; // factorial part of h
-		p = v * ( 1 - s );
-		q = v * ( 1 - s * f );
-		t = v * ( 1 - s * ( 1 - f ) );
-
-		switch( i )
-		{
-		case 0:
-		    *r = v;
-		    *g = t;
-		    *b = p;
-		   break;
-		case 1:
-		   *r = q;
-		   *g = v;
-		   *b = p;
-		   break;
-		case 2:
-		   *r = p;
-		   *g = v;
-		   *b = t;
-		   break;
-		case 3:
-		   *r = p;
-		   *g = q;
-		   *b = v;
-		   break;
-		case 4:
-		   *r = t;
-		   *g = p;
-		   *b = v;
-		   break;
-		default: // case 5:
-		   *r = v;
-		   *g = p;
-		   *b = q;
-		   break;
-		}
 	}
 
 	Mat hsv2rgb(const Mat src) {
