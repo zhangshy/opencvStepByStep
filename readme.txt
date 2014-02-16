@@ -10,3 +10,4 @@ git push origin master
 g++ -ggdb `pkg-config --cflags opencv`  -D_DEBUG testMethod.cpp `pkg-config --libs opencv`
 g++ -ggdb `pkg-config --cflags opencv` testMethod.cpp -fPIC -shared -o libtestMethod.so `pkg-config --libs opencv`
 g++ -ggdb `pkg-config --cflags opencv` usetestMethod.cpp -L. -ltestMethod -Wl,-rpath=. `pkg-config --libs opencv`
+g++ -ggdb `pkg-config --cflags opencv`  -D_DEBUG testMethod.cpp mathTest.cpp `pkg-config --libs opencv`

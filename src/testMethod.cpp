@@ -102,7 +102,16 @@ namespace zsyTestMethod {
                     convertBuf[i] = convertBuf[indexStart] + (i-indexStart)*(convertBuf[indexEnd]-convertBuf[indexStart])/(indexEnd-indexStart);
                 }
             }
+            for (k=indexEnd; k<256; k++)
+                convertBuf[k] = 255;
         }
+#if 0
+        cout << "------------------------" << endl;
+        for (i=0; i<256; i++) {
+            printf("%d ", convertBuf[i]);
+        }
+        cout << "------------------------" << endl;
+#endif
         return true;
     }
 
@@ -137,14 +146,41 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
+/** 根据(xi, yi)计算4个顶点*/
+#define CALC4VERTEX x1 = xi;\
+                y1 = yi;\
+                if (x1==0) {\
+                    x2 = 0;\
+                    xi = 0;\
+                } else if (x1==(PERNUM-1)) {\
+                    x2 = PERNUM-1;\
+                    xi = x2;\
+                } else\
+                    x2 = x1+1;\
+                if (y1==0) {\
+                    y2 = 0;\
+                    yi = 0;\
+                } else if (y1==(PERNUM-1)) {\
+                    y2 = PERNUM-1;\
+                    yi = y2;\
+                } else\
+                    y2 = y1+1
+
 	/**
 	*@brief AHE自适应直方图均衡化
+	*@param src 单通道的Mat
 	* 1. 将图像分成8*8块
+	* 2. 计算各块的变换函数
 	*/
 	Mat adaptHistEqual(const Mat src) {
 		int nrow = src.rows;
 		int ncol = src.cols;
+		int channel = src.channels();
 		Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
+		if (channel != 1) {
+			cout << "请输入单通道矩阵，当前图像为channel is: " << channel << endl;
+			return dst;
+		}
 		//分成8*8块
 		int perRow = nrow/PERNUM;
 		int perCol = ncol/PERNUM;
@@ -164,10 +200,11 @@ namespace zsyTestMethod {
 						data_out[c] = data_in[perCol*j+c];
 					}
 				}
-				Mat tmpDst = histogramEqualizate(tmpSrc);
 				areaCenters[i*PERNUM+j][0] = i*perRow + perRow/2;
 				areaCenters[i*PERNUM+j][1] = j*perCol + perCol/2;
 				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], true);
+#if 0
+				Mat tmpDst = histogramEqualizate(tmpSrc);
 				for (r=0; r<perRow; r++) {
 					const uchar* data_in = tmpDst.ptr<uchar>(r);
 					uchar* data_out = dst.ptr<uchar>(perRow*i+r);
@@ -175,15 +212,75 @@ namespace zsyTestMethod {
 						data_out[perCol*j+c] = data_in[c];
 					}
 				}
+#endif
 			}
 		}
 		int x1=0, x2=0, y1=0, y2=0;
-		float xi=0,yi=0;
+		uchar z11=0, z12=0, z21=0, z22=0, zii=0;
+		float xi=0, yi=0;
+		float xp=0, yp=0;   ///计算(x, y)点对应的顶点的临时变量
 		for (i=0; i<nrow; i++) {
+		    const uchar* data_in = src.ptr<uchar>(i);
+		    uchar* data_out = dst.ptr<uchar>(i);
             for (j=0; j<ncol; j++) {
                 xi = i*1.0/perRow;
                 yi = j*1.0/perCol;
+                xp = xi*2;
+                yp = yi*2;
+                x1 = xp;
+                y1 = yp;
+                if (x1&1)
+                    x1 = x1/2;
+                else
+                    x1 = x1/2 - 1;
+                if (y1&1)
+                    y1 = y1/2;
+                else
+                    y1 = y1/2 -1;
+                xi -= 0.5;
+                yi -= 0.5;
+                if (x1<0)
+                    x1=0;
+                if (y1<0)
+                    y1=0;
+                if (xp<1) {
+                    x2 = 0;
+                    xi = 0;
+                } else if (xp>15) {
+                    x2 = 7;
+                    xi = 7;
+                } else
+                    x2 = x1 + 1;
+                if (yp<1) {
+                    y2 = 0;
+                    yi = 0;
+                } else if (yp>15) {
+                    y2 = 7;
+                    yi = 7;
+                } else
+                    y2 = y1 + 1;
 
+//                CALC4VERTEX;
+//                cout << " x: " << xi << " y: " << yi << " x1: " << x1 << " x2: " << x2\
+//                                                    << " y1: " << y1 << " y2: " << y2<< endl;
+                /** 计算4个顶点对应的变换函数的值 */
+                z11 = histEqualConvertBufs[x1*PERNUM+y1][data_in[j]];
+                z12 = histEqualConvertBufs[x1*PERNUM+y2][data_in[j]];
+                z21 = histEqualConvertBufs[x2*PERNUM+y1][data_in[j]];
+                z22 = histEqualConvertBufs[x2*PERNUM+y2][data_in[j]];
+#if 0
+                if ((i<perRow/2) && (j<perCol/2))
+                    zii = histEqualConvertBufs[0][data_in[j]];
+                else if ((i>(nrow-perRow/2)) && (j<perCol/2))
+                    zii = histEqualConvertBufs[PERNUM-1][data_in[j]];
+                else if ((i<perRow/2) && (j>(ncol-perCol/2)))
+                    zii = histEqualConvertBufs[PERNUM*PERNUM-PERNUM][data_in[j]];
+                else if ((i>(nrow-perRow/2)) && (j>(ncol-perCol/2)))
+                    zii = histEqualConvertBufs[PERNUM*PERNUM-1][data_in[j]];
+#endif
+                bilinearInterpolation(x1, y1, x2, y2, xi, yi, z11, z12, z21, z22, &zii);
+//                bilinearInterpolation(x1*perRow+perRow/2, y1*perRow+perRow/2, x2*perRow+perRow/2, y2*perRow+perRow/2, i, j, z11, z12, z21, z22, &zii);
+                data_out[j] = zii;
             }
 		}
 		return dst;
@@ -277,7 +374,8 @@ namespace zsyTestMethod {
             case CLAHEMETHOD: {
                 //使用opencv自带的CLAHE进行测试
                 Ptr<CLAHE> clahe = createCLAHE();
-                clahe->setClipLimit(2.0);
+                clahe->setClipLimit(1.0);
+				clahe->setTilesGridSize(Size(8, 8));
                 clahe->apply(vSrc, vDst);
                 break;
             }
@@ -425,12 +523,12 @@ int main (int argc, char** argv) {
 //	Mat dst2 = rgbHistogramEqualizateGray(image, HE);
 	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
 	Mat dstCLAHE = rgbHistogramEqualizate(image, CLAHEMETHOD);
-	Mat dstResize = resizeMat(image, 1.7);
+//	Mat dstResize = resizeMat(image, 1.7);
 	imshow("Display HE", dstHE);
 //	imshow("Display dst2", dst2);
 	imshow("Display AHE", dstAHE);
 	imshow("Display CLAHE", dstCLAHE);
-	imshow("Display resize", dstResize);
+//	imshow("Display resize", dstResize);
 	waitKey(0);
 	return 0;
 }
