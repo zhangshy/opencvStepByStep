@@ -72,7 +72,7 @@ namespace zsyTestMethod {
 		for (i=0; i<256; i++) {
 			if (cdfPixelValue[i]>0) {
 				cdfMin = cdfPixelValue[i];
-				cout << "cdfMin: " << cdfMin << ";;i: " << i << endl;
+//				cout << "cdfMin: " << cdfMin << ";;i: " << i << endl;
 				break;
 			}
 			convertBuf[i] = 0;
@@ -147,7 +147,8 @@ namespace zsyTestMethod {
 	}
 
 /** 根据(xi, yi)计算4个顶点*/
-#define CALC4VERTEX x1 = xi;\
+#define CALC4VERTEX \
+                x1 = xi;\
                 y1 = yi;\
                 if (x1==0) {\
                     x2 = 0;\
@@ -166,6 +167,7 @@ namespace zsyTestMethod {
                 } else\
                     y2 = y1+1
 
+
 	/**
 	*@brief AHE自适应直方图均衡化
 	*@param src 单通道的Mat
@@ -173,8 +175,8 @@ namespace zsyTestMethod {
 	* 2. 计算各块的变换函数
 	*/
 	Mat adaptHistEqual(const Mat src) {
-		int nrow = src.rows;
-		int ncol = src.cols;
+		int nrow = src.rows;    //图像的高度
+		int ncol = src.cols;    //列数,宽
 		int channel = src.channels();
 		Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
 		if (channel != 1) {
@@ -186,101 +188,120 @@ namespace zsyTestMethod {
 		int perCol = ncol/PERNUM;
 		/** 对应块的变换函数 */
 		uchar histEqualConvertBufs[PERNUM*PERNUM][256] = {0};
-		/** 对应块的中心点(x,y) */
+		/** 对应块的中心点行列(x,y) */
 		int areaCenters[PERNUM*PERNUM][2] = {0};
-		Mat tmpSrc = Mat::zeros(perRow, perCol, CV_8UC1);
+//		Mat tmpSrc = Mat::zeros(perRow, perCol, CV_8UC1);
 		int i=0, j=0;
 		int r=0, c=0;
 		for (i=0; i<PERNUM; i++) {
 			for (j=0; j<PERNUM; j++) {
-				for (r=0; r<perRow; r++) {
-					const uchar* data_in = src.ptr<uchar>(perRow*i+r);
-					uchar* data_out = tmpSrc.ptr<uchar>(r);
-					for (c=0; c<perCol; c++) {
-						data_out[c] = data_in[perCol*j+c];
-					}
-				}
+//        cout << "i: " << i << ";j: " << j << endl;
+        /** 注意赋值top-left = 50,50 size=100,50: Rect(50,50,100,50)
+        * size为Size(cols, rows)，其第一个参数为cols，即图像的宽度。即Mat大小先是高度然后是宽度，而size大小显示宽度然后是高度。
+        */
+                Mat tmpSrc = src(Rect(j*perCol, i*perRow, perCol, perRow));   ///使用数据副本:Mat image2 = image1(Rect(2,2,99,99)).clone();
+//                Mat tmpSrc = src(Rect(0, 399, 50, 57));
 				areaCenters[i*PERNUM+j][0] = i*perRow + perRow/2;
 				areaCenters[i*PERNUM+j][1] = j*perCol + perCol/2;
 				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], true);
-#if 0
-				Mat tmpDst = histogramEqualizate(tmpSrc);
-				for (r=0; r<perRow; r++) {
-					const uchar* data_in = tmpDst.ptr<uchar>(r);
-					uchar* data_out = dst.ptr<uchar>(perRow*i+r);
-					for (c=0; c<perCol; c++) {
-						data_out[perCol*j+c] = data_in[c];
-					}
-				}
-#endif
 			}
 		}
-		int x1=0, x2=0, y1=0, y2=0;
+		int uRIndex = PERNUM - 1;   //右上角upper right corner
+		int lLIndex = (PERNUM-1)*PERNUM;    //左下角lower left corner
+		int lRIndex = PERNUM*PERNUM-1;  //右下角lower right corner
+		int r1=0, r2=0, c1=0, c2=0;
+		int k=0, t=0;
 		uchar z11=0, z12=0, z21=0, z22=0, zii=0;
-		float xi=0, yi=0;
-		float xp=0, yp=0;   ///计算(x, y)点对应的顶点的临时变量
 		for (i=0; i<nrow; i++) {
 		    const uchar* data_in = src.ptr<uchar>(i);
 		    uchar* data_out = dst.ptr<uchar>(i);
             for (j=0; j<ncol; j++) {
-                xi = i*1.0/perRow;
-                yi = j*1.0/perCol;
-                xp = xi*2;
-                yp = yi*2;
-                x1 = xp;
-                y1 = yp;
-                if (x1&1)
-                    x1 = x1/2;
-                else
-                    x1 = x1/2 - 1;
-                if (y1&1)
-                    y1 = y1/2;
-                else
-                    y1 = y1/2 -1;
-                xi -= 0.5;
-                yi -= 0.5;
-                if (x1<0)
-                    x1=0;
-                if (y1<0)
-                    y1=0;
-                if (xp<1) {
-                    x2 = 0;
-                    xi = 0;
-                } else if (xp>15) {
-                    x2 = 7;
-                    xi = 7;
-                } else
-                    x2 = x1 + 1;
-                if (yp<1) {
-                    y2 = 0;
-                    yi = 0;
-                } else if (yp>15) {
-                    y2 = 7;
-                    yi = 7;
-                } else
-                    y2 = y1 + 1;
-
-//                CALC4VERTEX;
+                if ((i<=areaCenters[0][0]) && (j<=areaCenters[0][1])) {
+                    data_out[j] = histEqualConvertBufs[0][data_in[j]];  ///左上角使用所在矩阵编号0的变换函数
+                } else if ((i<=areaCenters[uRIndex][0]) && (j>=areaCenters[uRIndex][1])) {
+                    data_out[j] = histEqualConvertBufs[uRIndex][data_in[j]];  ///右上角使用所在矩阵编号uRIndex的变换函数
+                } else if ((i>=areaCenters[lLIndex][0]) && (j<=areaCenters[lLIndex][1])) {
+                    data_out[j] = histEqualConvertBufs[lLIndex][data_in[j]];    ///左下角使用所在矩阵编号lLIndex的变换函数
+                } else if ((i>=areaCenters[lRIndex][0]) && (j>=areaCenters[lRIndex][1])) {
+                    data_out[j] = histEqualConvertBufs[lRIndex][data_in[j]];    ///右下角使用所在矩阵编号lRIndex的变换函数
+                } else if ((i<=areaCenters[0][0]) && (j>=areaCenters[0][1]) && (j<=areaCenters[uRIndex][1])) {
+                    for (k=0; k<uRIndex; k++) {
+                        if ((j>=areaCenters[k][1]) && (j<=areaCenters[k+1][1])) {
+                            //使用线性插值，计算两点和对应的值
+                            c1 = areaCenters[k][1];
+                            c2 = areaCenters[k+1][1];
+                            z11 = histEqualConvertBufs[k][data_in[j]];
+                            z12 = histEqualConvertBufs[k+1][data_in[j]];
+                            break;
+                        }
+                    }
+                    data_out[j] = z11 + (z12-z11)*(j-c1)/(c2-c1);
+                } else if ((i>=areaCenters[lLIndex][0]) && (j>=areaCenters[lLIndex][1]) && (j<=areaCenters[lRIndex][1])) {
+                    for (k=lLIndex; k<lRIndex; k++) {
+                        if ((j>=areaCenters[k][1]) && (j<=areaCenters[k+1][1])) {
+                            //使用线性插值，计算两点和对应的值
+                            c1 = areaCenters[k][1];
+                            c2 = areaCenters[k+1][1];
+                            z11 = histEqualConvertBufs[k][data_in[j]];
+                            z12 = histEqualConvertBufs[k+1][data_in[j]];
+                            break;
+                        }
+                    }
+                    data_out[j] = z11 + (z12-z11)*(j-c1)/(c2-c1);
+                } else if ((j<=areaCenters[0][1]) && (i>=areaCenters[0][0]) && (i<=areaCenters[lLIndex][0])) {
+                    for (k=0; k<lLIndex; k+=PERNUM) {
+                        if ((i>=areaCenters[k][0]) && (i<=areaCenters[k+PERNUM][0])) {
+                            r1 = areaCenters[k][0];
+                            r2 = areaCenters[k+PERNUM][0];
+                            z11 = histEqualConvertBufs[k][data_in[j]];
+                            z21 = histEqualConvertBufs[k+PERNUM][data_in[j]];
+                            data_out[j] = z11 + (z21-z11)*(i-r1)/(r2-r1);
+                            break;
+                        }
+                    }
+                } else if ((j>=areaCenters[uRIndex][1]) && (i>=areaCenters[uRIndex][0]) && (i<=areaCenters[lRIndex][0])) {
+                    for (k=uRIndex; k<lRIndex; k+=PERNUM) {
+                        if ((i>=areaCenters[k][0]) && (i<=areaCenters[k+1][0])) {
+                            r1 = areaCenters[k][0];
+                            r2 = areaCenters[k+PERNUM][0];
+                            z11 = histEqualConvertBufs[k][data_in[j]];
+                            z21 = histEqualConvertBufs[k][data_in[j]];
+                            data_out[j] = z11 + (z21-z11)*(i-r1)/(r2-r1);
+                            break;
+                        }
+                    }
+                } else {
+                    //行
+                    for (k=0; k<PERNUM; k++) {
+                        if ((i>=areaCenters[k*PERNUM][0]) && (i<=areaCenters[k*PERNUM+PERNUM][0])) {
+                            break;
+                        }
+                    }
+                    //列
+                    for (t=0; t<PERNUM; t++) {
+                        if ((j>=areaCenters[t][1]) && (j<=areaCenters[t+1][1])) {
+                            break;
+                        }
+                    }
+                    //行
+                    c1 = areaCenters[k*PERNUM][0];
+                    c2 = areaCenters[k*PERNUM+PERNUM][0];
+                    //列
+                    r1 = areaCenters[t][1];
+                    r2 = areaCenters[t+1][1];
+                    //计算四个点的值
+                    z11 = histEqualConvertBufs[k*PERNUM+t][data_in[j]];
+                    z12 = histEqualConvertBufs[k*PERNUM+t+1][data_in[j]];
+                    z21 = histEqualConvertBufs[k*PERNUM+PERNUM+t][data_in[j]];
+                    z22 = histEqualConvertBufs[k*PERNUM+PERNUM+t+1][data_in[j]];
+                    bilinearInterpolation(c1, r1, c2, r2, i, j, z11, z12, z21, z22, &zii);
+                    data_out[j] = zii;
+                }
 //                cout << " x: " << xi << " y: " << yi << " x1: " << x1 << " x2: " << x2\
 //                                                    << " y1: " << y1 << " y2: " << y2<< endl;
-                /** 计算4个顶点对应的变换函数的值 */
-                z11 = histEqualConvertBufs[x1*PERNUM+y1][data_in[j]];
-                z12 = histEqualConvertBufs[x1*PERNUM+y2][data_in[j]];
-                z21 = histEqualConvertBufs[x2*PERNUM+y1][data_in[j]];
-                z22 = histEqualConvertBufs[x2*PERNUM+y2][data_in[j]];
-#if 0
-                if ((i<perRow/2) && (j<perCol/2))
-                    zii = histEqualConvertBufs[0][data_in[j]];
-                else if ((i>(nrow-perRow/2)) && (j<perCol/2))
-                    zii = histEqualConvertBufs[PERNUM-1][data_in[j]];
-                else if ((i<perRow/2) && (j>(ncol-perCol/2)))
-                    zii = histEqualConvertBufs[PERNUM*PERNUM-PERNUM][data_in[j]];
-                else if ((i>(nrow-perRow/2)) && (j>(ncol-perCol/2)))
-                    zii = histEqualConvertBufs[PERNUM*PERNUM-1][data_in[j]];
-#endif
-                bilinearInterpolation(x1, y1, x2, y2, xi, yi, z11, z12, z21, z22, &zii);
+
+//                bilinearInterpolation(x1, y1, x2, y2, xi, yi, z11, z12, z21, z22, &zii);
 //                bilinearInterpolation(x1*perRow+perRow/2, y1*perRow+perRow/2, x2*perRow+perRow/2, y2*perRow+perRow/2, i, j, z11, z12, z21, z22, &zii);
-                data_out[j] = zii;
             }
 		}
 		return dst;
