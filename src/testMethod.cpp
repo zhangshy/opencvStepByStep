@@ -34,9 +34,10 @@ namespace zsyTestMethod {
 
     /**
     * 获取矩阵直方图均衡的变换函数，变换函数为[256]的数组，通过查表得到变换值
-    *@param needAll true时Mat中为出现的点通过线性插值法计算变换值
+    *@param needAll true时Mat中未出现的点通过线性插值法计算变换值
+    *@param bUseCLAHE true将原直方图超出阈值的部分先平均分配后在计算分布函数
     */
-    bool getHistEqualConvert(const Mat src, uchar* convertBuf, bool needAll)
+    bool getHistEqualConvert(const Mat src, uchar* convertBuf, bool needAll, bool bUseCLAHE)
     {
         int nrow = src.rows;
 		int ncol = src.cols;
@@ -58,6 +59,25 @@ namespace zsyTestMethod {
 			}
 		}
 
+        if (bUseCLAHE) {
+            /** 阈值=climit*nrow*ncol/256，climit=[1, 256]，现在用2测试使用limitNum = nrow*ncol>>7 */
+            int limitNum = nrow*ncol>>7;
+            int excessNums = 0; //超出部分阈值部分的总和
+            int perAddNum = 0;
+//            cout << "limitNum:::" << limitNum << ";;total sum: " << nrow*ncol << endl;
+            for (i=0; i<256; i++) {
+                if (pixelValue[i]>limitNum) {
+                        excessNums += (pixelValue[i]-limitNum);
+                        pixelValue[i] = limitNum;
+                }
+            }
+            perAddNum = excessNums >> 8;
+//            cout << "excessNums:::" << excessNums << ";;;perAddNum: " << perAddNum << endl;
+            for (i=0; i<256; i++) {
+                pixelValue[i] += perAddNum;
+                appearInMat[i] = 1;
+            }
+        }
 		cdfPixelValue[0] = pixelValue[0];
 		for (i=1; i<256; i++) {
 			cdfPixelValue[i] = cdfPixelValue[i-1] + pixelValue[i];
@@ -132,7 +152,7 @@ namespace zsyTestMethod {
 		}
 
         uchar convertBuf[256] = {0};
-        getHistEqualConvert(src, convertBuf, true);
+        getHistEqualConvert(src, convertBuf, false, false);
         int i=0, j=0;
 		for (i=0; i<nrow; i++) {
 			const uchar* data_in = src.ptr<uchar>(i);
@@ -145,27 +165,6 @@ namespace zsyTestMethod {
 
 		return dst;
 	}
-
-/** 根据(xi, yi)计算4个顶点*/
-#define CALC4VERTEX \
-                x1 = xi;\
-                y1 = yi;\
-                if (x1==0) {\
-                    x2 = 0;\
-                    xi = 0;\
-                } else if (x1==(PERNUM-1)) {\
-                    x2 = PERNUM-1;\
-                    xi = x2;\
-                } else\
-                    x2 = x1+1;\
-                if (y1==0) {\
-                    y2 = 0;\
-                    yi = 0;\
-                } else if (y1==(PERNUM-1)) {\
-                    y2 = PERNUM-1;\
-                    yi = y2;\
-                } else\
-                    y2 = y1+1
 
 
 	/**
@@ -183,6 +182,12 @@ namespace zsyTestMethod {
 			cout << "请输入单通道矩阵，当前图像为channel is: " << channel << endl;
 			return dst;
 		}
+#if 0
+        /** 测试Mat Rect的使用 */
+		Mat tmpdst = histogramEqualizate(src(Rect(0, 0, ncol/4, nrow/4)));
+		tmpdst.copyTo(dst(Rect(0, 0, ncol/4, nrow/4)));
+		return dst;
+#endif
 		//分成8*8块
 		int perRow = nrow/PERNUM;
 		int perCol = ncol/PERNUM;
@@ -203,7 +208,7 @@ namespace zsyTestMethod {
 //                Mat tmpSrc = src(Rect(0, 399, 50, 57));
 				areaCenters[i*PERNUM+j][0] = i*perRow + perRow/2;
 				areaCenters[i*PERNUM+j][1] = j*perCol + perCol/2;
-				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], true);
+				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], false, true);
 			}
 		}
 		int uRIndex = PERNUM - 1;   //右上角upper right corner
