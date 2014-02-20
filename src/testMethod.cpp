@@ -34,10 +34,9 @@ namespace zsyTestMethod {
 
     /**
     * 获取矩阵直方图均衡的变换函数，变换函数为[256]的数组，通过查表得到变换值
-    *@param needAll true时Mat中未出现的点通过线性插值法计算变换值
     *@param bUseCLAHE true将原直方图超出阈值的部分先平均分配后在计算分布函数
     */
-    bool getHistEqualConvert(const Mat src, uchar* convertBuf, bool needAll, bool bUseCLAHE)
+    bool getHistEqualConvert(const Mat src, uchar* convertBuf, bool bUseCLAHE)
     {
         int nrow = src.rows;
 		int ncol = src.cols;
@@ -46,8 +45,6 @@ namespace zsyTestMethod {
 			cout << "请输入单通道矩阵，当前图像为channel is: " << channel << endl;
 			return false;
 		}
-		/** appearInMat存储值为当前索引值的点在Mat中是否出现，0未出现，1出现 */
-		uchar appearInMat[256] = {0};
 		int pixelValue[256] = {0};	//统计各灰度值出现次数
 		int cdfPixelValue[256] = {0};	///计算累计分布函数cdf
 		int i=0, j=0;
@@ -55,7 +52,6 @@ namespace zsyTestMethod {
 			const uchar* data_src = src.ptr<uchar>(i);	//输入的每一行
 			for (j=0; j<ncol; j++) {
 				pixelValue[data_src[j]]++;	//计算各灰度值出现的次数
-				appearInMat[data_src[j]] = 1;   //表示该索引值在Mat中出现
 			}
 		}
 
@@ -75,7 +71,6 @@ namespace zsyTestMethod {
 //            cout << "excessNums:::" << excessNums << ";;;perAddNum: " << perAddNum << endl;
             for (i=0; i<256; i++) {
                 pixelValue[i] += perAddNum;
-                appearInMat[i] = 1;
             }
         }
 		cdfPixelValue[0] = pixelValue[0];
@@ -95,36 +90,15 @@ namespace zsyTestMethod {
 //				cout << "cdfMin: " << cdfMin << ";;i: " << i << endl;
 				break;
 			}
-			convertBuf[i] = 0;
 		}
 		int divNum = totalPixelNum - cdfMin;
 		/** appearData保存出现的点，appearNums出现的点的个数*/
 		uchar appearData[256] = {0};
 		uchar appearNums = 0;
         for (i=cdfMin; i<256; i++) {
-            if (appearInMat[i]) {
-                convertBuf[i] = ((cdfPixelValue[i]-cdfMin)*255)/divNum;
-                appearData[appearNums] = i;
-                appearNums++;
-            }
+            convertBuf[i] = ((cdfPixelValue[i]-cdfMin)*255)/divNum;
         }
 
-        /** 小于cdfMin的点0, 大于cdfMax的点为255*/
-        uchar indexStart = 0;
-        uchar indexEnd = 0;
-        int k = 0;
-        if (needAll) {
-            /** 在出现的点之间的点使用线性插值法 */
-            for (k=0; k<appearNums-1; k++) {
-                indexStart = appearData[k];
-                indexEnd = appearData[k+1];
-                for (i=indexStart; i<indexEnd; i++) {
-                    convertBuf[i] = convertBuf[indexStart] + (i-indexStart)*(convertBuf[indexEnd]-convertBuf[indexStart])/(indexEnd-indexStart);
-                }
-            }
-            for (k=indexEnd; k<256; k++)
-                convertBuf[k] = 255;
-        }
 #if 0
         cout << "------------------------" << endl;
         for (i=0; i<256; i++) {
@@ -152,7 +126,7 @@ namespace zsyTestMethod {
 		}
 
         uchar convertBuf[256] = {0};
-        getHistEqualConvert(src, convertBuf, false, false);
+        getHistEqualConvert(src, convertBuf, false);
         int i=0, j=0;
 		for (i=0; i<nrow; i++) {
 			const uchar* data_in = src.ptr<uchar>(i);
@@ -168,12 +142,13 @@ namespace zsyTestMethod {
 
 
 	/**
-	*@brief AHE自适应直方图均衡化
+	*@brief CLAHE自适应直方图均衡化
 	*@param src 单通道的Mat
+	*@param bIsCLAHE true使用CLAHE，false使用AHE
 	* 1. 将图像分成8*8块
 	* 2. 计算各块的变换函数
 	*/
-	Mat adaptHistEqual(const Mat src) {
+	Mat cladaptHistEqual(const Mat src, bool bIsCLAHE) {
 		int nrow = src.rows;    //图像的高度
 		int ncol = src.cols;    //列数,宽
 		int channel = src.channels();
@@ -208,7 +183,7 @@ namespace zsyTestMethod {
 //                Mat tmpSrc = src(Rect(0, 399, 50, 57));
 				areaCenters[i*PERNUM+j][0] = i*perRow + perRow/2;
 				areaCenters[i*PERNUM+j][1] = j*perCol + perCol/2;
-				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], false, true);
+				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], bIsCLAHE);
 			}
 		}
 		int uRIndex = PERNUM - 1;   //右上角upper right corner
@@ -394,9 +369,13 @@ namespace zsyTestMethod {
 			case HE:
 				vDst = histogramEqualizate(vSrc);
 				break;
-			case AHE:
-				vDst = adaptHistEqual(vSrc);
+            case AHE:
+                vDst = cladaptHistEqual(vSrc, false);
+                break;
+			case CLAHEMETHOD:
+				vDst = cladaptHistEqual(vSrc, true);
 				break;
+/*
             case CLAHEMETHOD: {
                 //使用opencv自带的CLAHE进行测试
                 Ptr<CLAHE> clahe = createCLAHE();
@@ -405,6 +384,7 @@ namespace zsyTestMethod {
                 clahe->apply(vSrc, vDst);
                 break;
             }
+*/
 			default:
 				vDst = histogramEqualizate(vSrc);
 		}
@@ -450,8 +430,11 @@ namespace zsyTestMethod {
 			case HE:
 				grayDst = histogramEqualizate(graySrc);
 				break;
-			case AHE:
-				grayDst = adaptHistEqual(graySrc);
+            case AHE:
+				grayDst = cladaptHistEqual(graySrc, false);
+				break;
+			case CLAHEMETHOD:
+				grayDst = cladaptHistEqual(graySrc, true);
 				break;
 			default:
 				grayDst = histogramEqualizate(graySrc);
@@ -546,12 +529,10 @@ int main (int argc, char** argv) {
 	}
 
 	Mat dstHE = rgbHistogramEqualizate(image, HE);
-//	Mat dst2 = rgbHistogramEqualizateGray(image, HE);
 	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
 	Mat dstCLAHE = rgbHistogramEqualizate(image, CLAHEMETHOD);
 //	Mat dstResize = resizeMat(image, 1.7);
 	imshow("Display HE", dstHE);
-//	imshow("Display dst2", dst2);
 	imshow("Display AHE", dstAHE);
 	imshow("Display CLAHE", dstCLAHE);
 //	imshow("Display resize", dstResize);

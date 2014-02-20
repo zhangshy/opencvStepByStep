@@ -8,7 +8,7 @@ using namespace cv;
 /** AHE算法时将图像分成PERNUM*PERNUM块 */
 #define PERNUM 8
 #define HE 		100
-#define AHE		101
+#define AHE     101
 #define CLAHEMETHOD	102
 
 namespace zsyTestMethod {
