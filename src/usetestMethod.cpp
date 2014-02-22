@@ -1,10 +1,10 @@
 #include <iostream>
-#include "cv.h"
-#include "highgui.h"
+//#include "cv.h"
+//#include "highgui.h"
 #include "testMethod.h"
 
 using namespace std;
-using namespace cv;
+//using namespace cv;
 using namespace zsyTestMethod;
 
 int main(int argc, char** argv) {
