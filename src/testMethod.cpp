@@ -385,6 +385,9 @@ namespace zsyTestMethod {
                 break;
             }
 */
+            case USEACE:
+                vDst = useLSD(vSrc);
+                break;
 			default:
 				vDst = histogramEqualizate(vSrc);
 		}
@@ -511,6 +514,43 @@ namespace zsyTestMethod {
                 bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[0], bgrSrc12[0], bgrSrc21[0], bgrSrc22[0], &bgrDst[0]);
                 bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[1], bgrSrc12[1], bgrSrc21[1], bgrSrc22[1], &bgrDst[1]);
                 bilinearInterpolation(x1, y1, x2, y2, srcRow, srcCol, bgrSrc11[2], bgrSrc12[2], bgrSrc21[2], bgrSrc22[2], &bgrDst[2]);
+            }
+        }
+        return dst;
+	}
+
+	/**
+	*@brief 使用局部标准差
+	*
+	* 1. 取区域平均值，大于平均值的更大、小于平均值的更小
+	* 参考：http://www.cnblogs.com/Imageshop/p/3324282.html
+	*/
+	Mat useLSD(const Mat src) {
+        int n = 50; //局部矩阵大小(2n+1)*(2n+1)
+        int c = 2;
+        int nrow = src.rows;
+		int ncol = src.cols;
+        Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
+        int i, j;
+        for (i=0; i<nrow; i++) {
+            const uchar* data_in = src.ptr<uchar>(i);
+            uchar* data_out = dst.ptr<uchar>(i);
+            for (j=0; j<ncol; j++) {
+                /** 计算块的左上角和右下角的点 */
+                int row1 = i-50;
+                int col1 = j-50;
+                int row2 = i+50;
+                int col2 = j+50;
+                col1 = col1<0 ? 0 : col1;
+                row1 = row1<0 ? 0 : row1;
+                col2 = col2>ncol ? ncol : col2;
+                row2 = row2>nrow ? nrow : row2;
+                Mat tmp = src(Rect(col1, row1, col2-col1, row2-row1));
+                Scalar m = mean(tmp);
+                uchar tmpM = m.val[0];
+//                cout << "tmpM: " << tmpM << endl;
+                int t = tmpM + c*(data_in[j]-tmpM);
+                data_out[j] = t>255 ? 255 : (t<0 ? 0 : t);
             }
         }
         return dst;

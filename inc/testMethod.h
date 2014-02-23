@@ -10,6 +10,7 @@ using namespace cv;
 #define HE 		100
 #define AHE     101
 #define CLAHEMETHOD	102
+#define USEACE  103
 
 namespace zsyTestMethod {
 	//获取版本信息
@@ -41,5 +42,12 @@ namespace zsyTestMethod {
 	*@param resize 缩放倍数
 	*/
 	Mat resizeMat(const Mat src, float resize);
+
+	/**
+	*@brief 使用局部标准差
+	*
+	* 参考：http://www.cnblogs.com/Imageshop/p/3324282.html
+	*/
+	Mat useLSD(const Mat src);
 }
 #endif
