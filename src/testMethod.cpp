@@ -386,7 +386,10 @@ namespace zsyTestMethod {
             }
 */
             case USEACE:
-                vDst = useLSD(vSrc);
+                vDst = useACE(vSrc, false);
+                break;
+            case USEACEWITHLSD:
+                vDst = useACE(vSrc, true);
                 break;
 			default:
 				vDst = histogramEqualizate(vSrc);
@@ -519,19 +522,53 @@ namespace zsyTestMethod {
         return dst;
 	}
 
+    /**
+    * 计算图像标准差
+    *@param src 单通道Mat
+    *@param srcMean 平均值
+    */
+    float getMatStandardDeviation(const Mat src, uchar srcMean=0);
+    float getMatStandardDeviation(const Mat src, uchar srcMean) {
+        int nrow = src.rows;
+        int ncol = src.cols;
+        int i, j;
+        long int varianceSum = 0;   //方差总和
+        if (srcMean == 0) {
+            srcMean = mean(src).val[0];
+            cout << "计算平均值: " << srcMean << endl;
+        }
+        for (i=0; i<nrow; i++) {
+            const uchar* data_in = src.ptr<uchar>(i);
+            for (j=0; j<ncol; j++) {
+                varianceSum += (data_in[j]-srcMean)*(data_in[j]-srcMean);
+            }
+        }
+        varianceSum = varianceSum/(nrow*ncol);
+        float ret = sqrt(varianceSum);  //开平方
+//        cout << "标准差: " << ret << endl;
+        return ret;
+    }
+
 	/**
 	*@brief 使用局部标准差
 	*
 	* 1. 取区域平均值，大于平均值的更大、小于平均值的更小
+	* 2. 使用局部标准差，D怎么取值合适？？CG的值有时太大
+	*@param useLSD true 使用局部标准差
 	* 参考：http://www.cnblogs.com/Imageshop/p/3324282.html
 	*/
-	Mat useLSD(const Mat src) {
+	Mat useACE(const Mat src, bool useLSD) {
         int n = 50; //局部矩阵大小(2n+1)*(2n+1)
-        int c = 2;
+        float c = 2.0;
+        float max = 3.0;    //定义CG最大值
+        uchar D = 0;    //全局平均值
         int nrow = src.rows;
 		int ncol = src.cols;
         Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
         int i, j;
+        if (useLSD) {
+            D = mean(src).val[0];
+        }
         for (i=0; i<nrow; i++) {
             const uchar* data_in = src.ptr<uchar>(i);
             uchar* data_out = dst.ptr<uchar>(i);
@@ -549,10 +586,18 @@ namespace zsyTestMethod {
                 Scalar m = mean(tmp);
                 uchar tmpM = m.val[0];
 //                cout << "tmpM: " << tmpM << endl;
+                if (useLSD) {
+                    float standardDeviation = getMatStandardDeviation(tmp, tmpM);
+                    c = D/standardDeviation;
+                    cout << "c: " << c << endl;
+                    if (c > max)
+                        c = max;
+                }
                 int t = tmpM + c*(data_in[j]-tmpM);
                 data_out[j] = t>255 ? 255 : (t<0 ? 0 : t);
             }
         }
+        cout << "D: " << (int)D << endl;
         return dst;
 	}
 }

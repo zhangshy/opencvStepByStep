@@ -11,6 +11,7 @@ using namespace cv;
 #define AHE     101
 #define CLAHEMETHOD	102
 #define USEACE  103
+#define USEACEWITHLSD  104
 
 namespace zsyTestMethod {
 	//获取版本信息
@@ -48,6 +49,6 @@ namespace zsyTestMethod {
 	*
 	* 参考：http://www.cnblogs.com/Imageshop/p/3324282.html
 	*/
-	Mat useLSD(const Mat src);
+	Mat useACE(const Mat src, bool useLSD);
 }
 #endif
