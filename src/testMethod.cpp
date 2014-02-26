@@ -241,11 +241,11 @@ namespace zsyTestMethod {
                     }
                 } else if ((j>=areaCenters[uRIndex][1]) && (i>=areaCenters[uRIndex][0]) && (i<=areaCenters[lRIndex][0])) {
                     for (k=uRIndex; k<lRIndex; k+=PERNUM) {
-                        if ((i>=areaCenters[k][0]) && (i<=areaCenters[k+1][0])) {
+                        if ((i>=areaCenters[k][0]) && (i<=areaCenters[k+PERNUM][0])) {
                             r1 = areaCenters[k][0];
                             r2 = areaCenters[k+PERNUM][0];
                             z11 = histEqualConvertBufs[k][data_in[j]];
-                            z21 = histEqualConvertBufs[k][data_in[j]];
+                            z21 = histEqualConvertBufs[k+PERNUM][data_in[j]];
                             data_out[j] = z11 + (z21-z11)*(i-r1)/(r2-r1);
                             break;
                         }

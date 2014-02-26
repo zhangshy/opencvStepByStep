@@ -9,7 +9,7 @@ using namespace zsyTestMethod;
 
 int main(int argc, char** argv) {
 	cout << getTestMethodVersion() << endl;
-	Mat image = imread("../out/test4.png", CV_LOAD_IMAGE_COLOR);
+	Mat image = imread("../out/test2.jpg", CV_LOAD_IMAGE_COLOR);
 	if (!image.data) {
 		cout <<  "Could not open or find the image" << std::endl ;
 		return -1;
