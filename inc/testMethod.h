@@ -5,13 +5,25 @@
 #include "highgui.h"
 using namespace cv;
 
-/** AHE算法时将图像分成PERNUM*PERNUM块 */
-#define PERNUM 8
-#define HE 		100
-#define AHE     101
-#define CLAHEMETHOD	102
-#define USEACE  103
-#define USEACEWITHLSD  104
+/**
+* 将图像分成PERNUM*PERNUM块,
+* AHE算法时分成8*8块，在使用局部自适应自动色阶时分成4*4块。
+*/
+#define                 PERNUM 4
+#define HE 		        100
+#define AHE             101
+#define CLAHEMETHOD	    102
+/** 使用局部平均值，大于平均值的更大，小于平均值的更小, CG使用固定值 */
+#define USEACE          103
+/** 使用局部平均值，大于平均值的更大，小于平均值的更小，CG有局部标准差LSD获得 */
+#define USEACEWITHLSD   104
+
+/** 将图像高低两端的像素裁剪后，在变换到[0, 255] */
+#define ATUOCUTVALUE       105
+
+
+/** 将int类型的值限定在[0, 255] */
+#define Value0to255(x) ((x)>255 ? 255 : ((x)<0 ? 0 : (x)))
 
 namespace zsyTestMethod {
 	//获取版本信息
@@ -50,5 +62,11 @@ namespace zsyTestMethod {
 	* 参考：http://www.cnblogs.com/Imageshop/p/3324282.html
 	*/
 	Mat useACE(const Mat src, bool useLSD);
+
+	/**
+	* 对rgb三个通道分别使用局部自动适应的方式
+	* 参考：http://www.cnblogs.com/Imageshop/p/3395968.html
+	*/
+	Mat rgbAutoContrast(const Mat src);
 }
 #endif

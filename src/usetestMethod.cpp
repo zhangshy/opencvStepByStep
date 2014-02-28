@@ -14,6 +14,10 @@ int main(int argc, char** argv) {
 		cout <<  "Could not open or find the image" << std::endl ;
 		return -1;
 	}
+	Mat dstauto = rgbAutoContrast(image);
+    imshow("Display dstauto", dstauto);
+    waitKey(0);
+#if 0
 	Mat dstHE = rgbHistogramEqualizate(image, HE);
 //	Mat dstAHE = rgbHistogramEqualizate(image, AHE);
 	Mat dstCLAHE = rgbHistogramEqualizate(image, CLAHEMETHOD);
@@ -28,5 +32,6 @@ int main(int argc, char** argv) {
     imshow("Display ACE", dstACE);
 //    imshow("Display ACEWITHLSD", dstACEWITHLSD);
 	waitKey(0);
+#endif
 	return 0;
 }

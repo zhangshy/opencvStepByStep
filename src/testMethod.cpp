@@ -1,12 +1,12 @@
 #include <iostream>
 #include "testMethod.h"
 #include "mathTest.h"
-
+#include "histRedistribute.h"
 using namespace std;
 
 namespace zsyTestMethod {
 	string getTestMethodVersion() {
-		return "libtestMethod.so version0.1";
+		return "libtestMethod.so version0.2";
 	}
 
 	/**
@@ -32,82 +32,7 @@ namespace zsyTestMethod {
 		return dst;
 	}
 
-    /**
-    * 获取矩阵直方图均衡的变换函数，变换函数为[256]的数组，通过查表得到变换值
-    *@param bUseCLAHE true将原直方图超出阈值的部分先平均分配后在计算分布函数
-    */
-    bool getHistEqualConvert(const Mat src, uchar* convertBuf, bool bUseCLAHE)
-    {
-        int nrow = src.rows;
-		int ncol = src.cols;
-		int channel = src.channels();
-		if (channel != 1) {
-			cout << "请输入单通道矩阵，当前图像为channel is: " << channel << endl;
-			return false;
-		}
-		int pixelValue[256] = {0};	//统计各灰度值出现次数
-		int cdfPixelValue[256] = {0};	///计算累计分布函数cdf
-		int i=0, j=0;
-		for (i=0; i<nrow; i++) {
-			const uchar* data_src = src.ptr<uchar>(i);	//输入的每一行
-			for (j=0; j<ncol; j++) {
-				pixelValue[data_src[j]]++;	//计算各灰度值出现的次数
-			}
-		}
 
-        if (bUseCLAHE) {
-            /** 阈值=climit*nrow*ncol/256，climit=[1, 256]，现在用2测试使用limitNum = nrow*ncol>>7 */
-            int limitNum = nrow*ncol>>7;
-            int excessNums = 0; //超出部分阈值部分的总和
-            int perAddNum = 0;
-//            cout << "limitNum:::" << limitNum << ";;total sum: " << nrow*ncol << endl;
-            for (i=0; i<256; i++) {
-                if (pixelValue[i]>limitNum) {
-                        excessNums += (pixelValue[i]-limitNum);
-                        pixelValue[i] = limitNum;
-                }
-            }
-            perAddNum = excessNums >> 8;
-//            cout << "excessNums:::" << excessNums << ";;;perAddNum: " << perAddNum << endl;
-            for (i=0; i<256; i++) {
-                pixelValue[i] += perAddNum;
-            }
-        }
-		cdfPixelValue[0] = pixelValue[0];
-		for (i=1; i<256; i++) {
-			cdfPixelValue[i] = cdfPixelValue[i-1] + pixelValue[i];
-		}
-		/** 变换函数公式：(cdf(v)-cdfmin)*(L-1)/((M*N)-cdfmin) M N分别代表图像的长宽像素个数，L为灰度级数，本例图像8位深度，灰度级数为 2^8=256 */
-		int totalPixelNum = nrow*ncol;	//总像素数
-		int cdfMin = 0;
-		/**
-		* 对于Mat中出现的点直接利用公式计算对应变换值
-		* 对于Mat中未出现的点利用线性插值法计算变换值？？
-        */
-		for (i=0; i<256; i++) {
-			if (cdfPixelValue[i]>0) {
-				cdfMin = cdfPixelValue[i];
-//				cout << "cdfMin: " << cdfMin << ";;i: " << i << endl;
-				break;
-			}
-		}
-		int divNum = totalPixelNum - cdfMin;
-		/** appearData保存出现的点，appearNums出现的点的个数*/
-		uchar appearData[256] = {0};
-		uchar appearNums = 0;
-        for (i=cdfMin; i<256; i++) {
-            convertBuf[i] = ((cdfPixelValue[i]-cdfMin)*255)/divNum;
-        }
-
-#if 0
-        cout << "------------------------" << endl;
-        for (i=0; i<256; i++) {
-            printf("%d ", convertBuf[i]);
-        }
-        cout << "------------------------" << endl;
-#endif
-        return true;
-    }
 
 	/**
 	* 输入为单通道Mat, 直方图均衡化
@@ -148,7 +73,7 @@ namespace zsyTestMethod {
 	* 1. 将图像分成8*8块
 	* 2. 计算各块的变换函数
 	*/
-	Mat cladaptHistEqual(const Mat src, bool bIsCLAHE) {
+	Mat cladaptHistEqual(const Mat src, int method) {
 		int nrow = src.rows;    //图像的高度
 		int ncol = src.cols;    //列数,宽
 		int channel = src.channels();
@@ -183,7 +108,13 @@ namespace zsyTestMethod {
 //                Mat tmpSrc = src(Rect(0, 399, 50, 57));
 				areaCenters[i*PERNUM+j][0] = i*perRow + perRow/2;
 				areaCenters[i*PERNUM+j][1] = j*perCol + perCol/2;
-				getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], bIsCLAHE);
+				switch (method) {
+                    case ATUOCUTVALUE:
+                        getAutoCutConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j]);
+                        break;
+                    default:
+                        getHistEqualConvert(tmpSrc, histEqualConvertBufs[i*PERNUM+j], true);
+				}
 			}
 		}
 		int uRIndex = PERNUM - 1;   //右上角upper right corner
@@ -370,10 +301,10 @@ namespace zsyTestMethod {
 				vDst = histogramEqualizate(vSrc);
 				break;
             case AHE:
-                vDst = cladaptHistEqual(vSrc, false);
+                vDst = cladaptHistEqual(vSrc, CLAHEMETHOD);
                 break;
 			case CLAHEMETHOD:
-				vDst = cladaptHistEqual(vSrc, true);
+				vDst = cladaptHistEqual(vSrc, CLAHEMETHOD);
 				break;
 /*
             case CLAHEMETHOD: {
@@ -437,10 +368,10 @@ namespace zsyTestMethod {
 				grayDst = histogramEqualizate(graySrc);
 				break;
             case AHE:
-				grayDst = cladaptHistEqual(graySrc, false);
+				grayDst = cladaptHistEqual(graySrc, CLAHEMETHOD);
 				break;
 			case CLAHEMETHOD:
-				grayDst = cladaptHistEqual(graySrc, true);
+				grayDst = cladaptHistEqual(graySrc, CLAHEMETHOD);
 				break;
 			default:
 				grayDst = histogramEqualizate(graySrc);
@@ -598,6 +529,50 @@ namespace zsyTestMethod {
             }
         }
         cout << "D: " << (int)D << endl;
+        return dst;
+	}
+
+	/**
+	* 将图像分块，对rgb通道分别进行自动对比度调整，并进行双线性插值
+	* 参考：http://www.cnblogs.com/Imageshop/p/3395968.html
+	*/
+	Mat rgbAutoContrast(const Mat src) {
+	    // "images" is a vector of 3 Mat arrays:
+        vector<Mat> images(3);
+        // split src,get the images (dont forget they follow BGR order in OpenCV)
+        split(src, images);
+        Mat tmpB = cladaptHistEqual(images[0], ATUOCUTVALUE);
+        Mat tmpG = cladaptHistEqual(images[1], ATUOCUTVALUE);
+        Mat tmpR = cladaptHistEqual(images[2], ATUOCUTVALUE);
+        Mat dst(src.rows, src.cols, CV_8UC3, Scalar(0, 0, 0));
+        int r, c;
+        for (r=0; r<src.rows; r++) {
+            const uchar* data_b = tmpB.ptr<uchar>(r);
+            const uchar* data_g = tmpG.ptr<uchar>(r);
+            const uchar* data_r = tmpR.ptr<uchar>(r);
+            for (c=0; c<src.cols; c++) {
+                Vec3b &bgrDst = dst.at<Vec3b>(r, c);
+                bgrDst[0] = data_b[c];
+                bgrDst[1] = data_g[c];
+                bgrDst[2] = data_r[c];
+            }
+        }
+#if 0
+        /** 分别显示BGR通道 */
+        Mat matBlue(src.rows, src.cols, CV_8UC3, Scalar(0, 0, 0));
+        Mat matGreen(src.rows, src.cols, CV_8UC3, Scalar(0, 0, 0));
+        Mat matRed(src.rows, src.cols, CV_8UC3, Scalar(0, 0, 0));
+        int bfrom_to[] = {0,0};
+        int gfrom_to[] = {1,1};
+        int rfrom_to[] = {2,2};
+        mixChannels(&src, 1, &matBlue, 2, bfrom_to, 1);
+        mixChannels(&src, 1, &matGreen, 2, gfrom_to, 1);
+        mixChannels(&src, 1, &matRed, 2, rfrom_to, 1);
+        imshow("image blue", matBlue);
+        imshow("image green", matGreen);
+        imshow("image red", matRed);
+        waitKey(0);
+#endif
         return dst;
 	}
 }
