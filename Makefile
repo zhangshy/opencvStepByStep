@@ -19,7 +19,8 @@ OUTDIR = $(PWD)/out
 #SOURCES := $(wildcard $(SRCDIR)/*.cpp)
 SOURCES = src/mathTest.cpp \
 			src/testMethod.cpp \
-			src/histRedistribute.cpp
+			src/histRedistribute.cpp \
+			src/threshold.cpp
 
 #获取.cpp对应的.o文件名称
 OBJECTS := $(SOURCES:$(SRCDIR)/%.cpp=$(OBJDIR)/%.o)
