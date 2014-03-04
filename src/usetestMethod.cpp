@@ -10,16 +10,18 @@ using namespace zsyTestMethod;
 
 int main(int argc, char** argv) {
 	cout << getTestMethodVersion() << endl;
-	Mat image = imread("../out/test7.jpg", CV_LOAD_IMAGE_COLOR);
+	Mat image = imread("../out/test.jpg", CV_LOAD_IMAGE_COLOR);
 	if (!image.data) {
 		cout <<  "Could not open or find the image" << std::endl ;
 		return -1;
 	}
 	Mat dstGray = changRGB2Gray(image);
 	Mat dstThreshold = matThreshold(dstGray);
+	Mat dstAThreshold = adaptiveMatThreshold(dstGray, USEOTSU);
 	imshow("src", image);
 	imshow("gray", dstGray);
 	imshow("threshold", dstThreshold);
+	imshow("athreshold", dstAThreshold);
     waitKey(0);
 #if 0
 	Mat dstHE = rgbHistogramEqualizate(image, HE);
