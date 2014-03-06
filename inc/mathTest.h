@@ -33,4 +33,13 @@ void perrgb2hsv(float r, float g, float b, float* h, float* s, float* v);
 * if s == 0, then h = -1 (undefined)
 */
 void perhsv2rgb(float h, float s, float v, float* r, float* g, float* b);
+
+/**
+* 计算高斯核的矩阵
+* 参考： http://www.swageroo.com/wordpress/how-to-program-a-gaussian-blur-without-using-3rd-party-libraries/
+*@param k 矩阵size为(2k+1)*(2k+1)
+*@param sigma 标准差
+*@return 大小为(2k+1)*(2k+1)的矩阵
+*/
+double* getGaussianKernel(int k, double sigma);
 #endif

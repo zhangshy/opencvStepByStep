@@ -1,5 +1,6 @@
 #include <iostream>
-#include<cmath>
+#include <cmath>
+#include <stdlib.h>
 #include "mathTest.h"
 
 using namespace std;
@@ -143,3 +144,57 @@ void perhsv2rgb(float h, float s, float v, float* r, float* g, float* b)
        break;
     }
 }
+
+
+
+/**
+* 计算高斯核的矩阵
+* 参考： http://www.swageroo.com/wordpress/how-to-program-a-gaussian-blur-without-using-3rd-party-libraries/
+*@param k 矩阵size为(2k+1)*(2k+1)
+*@param sigma 标准差
+*@param kernel为out大小为(2k+1)*(2k+1)的矩阵
+*@return true成功
+*/
+bool getGaussianKernel(int k, double sigma, double *kernel) {
+    int size = 2*k+1;
+    int i, j, index;
+    double div = 2*3.14*sigma*sigma;    //2*pi*sigma^2
+    double div2 = 2*sigma*sigma;
+    double sum=0;
+    for (i=0, index=0; i<size; i++) {
+        for (j=0; j<size; j++, index++) {
+            *(kernel+index) = exp(-((i-k)*(i-k)+(j-k)*(j-k))/div2)/div;
+            sum += *(kernel+index);
+        }
+    }
+//    cout << "sum: " << sum <<endl;
+    for (i=0, index=0; i<size; i++) {
+        for (j=0; j<size; j++, index++) {
+            *(kernel+index) = *(kernel+index)/sum;
+//            cout << " " << *(kernel+index);
+        }
+//        cout << endl;
+    }
+    return true;
+}
+
+#ifdef DEBUGMAIN
+int main(int argc, char** argv) {
+    int n = 1;
+    int size=2*n+1;
+    double sigma = 1.5;
+    double *kernel = (double *)malloc(size*size*sizeof(double));
+    getGaussianKernel(n, sigma, kernel);
+    int i, j, index;
+    for (i=0, index=0; i<size; i++) {
+        for (j=0; j<size; j++, index++) {
+            cout << " " << *(kernel+index);
+        }
+        cout << endl;
+    }
+    free(kernel);
+    kernel = NULL;
+    return 0;
+}
+#endif
+
