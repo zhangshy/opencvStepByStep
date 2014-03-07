@@ -23,4 +23,11 @@ Mat matThreshold(const Mat src);
 *参考CLAHE，分块二值化
 */
 Mat adaptiveMatThreshold(const Mat src, int method);
+
+/**
+* 高斯模糊
+*@param k 矩阵size为(2k+1)*(2k+1)
+*@param sigma 标准差
+*/
+Mat GaussianBlur(const Mat src, int k, double sigma);
 #endif

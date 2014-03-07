@@ -18,10 +18,12 @@ int main(int argc, char** argv) {
 	Mat dstGray = changRGB2Gray(image);
 	Mat dstThreshold = matThreshold(dstGray);
 	Mat dstAThreshold = adaptiveMatThreshold(dstGray, USEOTSU);
+	Mat dstGaussianBlur = GaussianBlur(image, 2, 1.5);
 	imshow("src", image);
 	imshow("gray", dstGray);
 	imshow("threshold", dstThreshold);
 	imshow("athreshold", dstAThreshold);
+	imshow("dstGaussianBlur", dstGaussianBlur);
     waitKey(0);
 #if 0
 	Mat dstHE = rgbHistogramEqualizate(image, HE);

@@ -208,3 +208,46 @@ Mat matThreshold(const Mat src) {
     }
     return dst;
 }
+
+/**
+* 高斯模糊
+*@param k 矩阵size为(2k+1)*(2k+1)
+*@param sigma 标准差
+*/
+Mat GaussianBlur(const Mat src, int k, double sigma) {
+    int nrow = src.rows;
+    int ncol = src.cols;
+    int cn = src.channels();
+    Mat dst = Mat::zeros(nrow, ncol, src.type());
+    int i, j, c;
+    int m, n;
+    int size=2*k+1;
+    double *kernel = (double *)malloc(size*size*sizeof(double));
+    double *sum = (double *)malloc(cn*sizeof(double));
+    memset(sum, 0, cn*sizeof(double));
+    getGaussianKernel(k, sigma, kernel);
+    const uchar* data_in = (uchar *)src.data;
+    uchar* data_out = (uchar *)dst.data;
+    int index;
+    for (i=k; i<nrow-k; i++) {
+        for (j=k; j<ncol-k; j++) {
+            memset(sum, 0, cn*sizeof(double));
+            for (m=i-k, index=0; m<i+k; m++) {
+                for (n=j-k; n<j+k; n++, index++) {
+                    for (c=0; c<cn; c++) {
+                        sum[c] += data_in[m*ncol*cn + n*cn + c]*kernel[index];
+                    }
+                }
+            }
+            for (c=0; c<cn; c++) {
+                data_out[i*ncol*cn + j*cn + c] = sum[c]>255 ? 255 : sum[c];
+            }
+        }
+    }
+    free(kernel);
+    kernel = NULL;
+    free(sum);
+    sum = NULL;
+    return dst;
+}
+

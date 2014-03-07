@@ -41,5 +41,5 @@ void perhsv2rgb(float h, float s, float v, float* r, float* g, float* b);
 *@param sigma 标准差
 *@return 大小为(2k+1)*(2k+1)的矩阵
 */
-double* getGaussianKernel(int k, double sigma);
+bool getGaussianKernel(int k, double sigma, double *kernel);
 #endif
