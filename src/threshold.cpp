@@ -232,8 +232,8 @@ Mat GaussianBlur(const Mat src, int k, double sigma) {
     for (i=k; i<nrow-k; i++) {
         for (j=k; j<ncol-k; j++) {
             memset(sum, 0, cn*sizeof(double));
-            for (m=i-k, index=0; m<i+k; m++) {
-                for (n=j-k; n<j+k; n++, index++) {
+            for (m=i-k, index=0; m<=i+k; m++) {
+                for (n=j-k; n<=j+k; n++, index++) {
                     for (c=0; c<cn; c++) {
                         sum[c] += data_in[m*ncol*cn + n*cn + c]*kernel[index];
                     }
@@ -248,6 +248,54 @@ Mat GaussianBlur(const Mat src, int k, double sigma) {
     kernel = NULL;
     free(sum);
     sum = NULL;
+    return dst;
+}
+
+/**
+* sobel算子，计算图像边缘
+*@param 输入单通道Mat
+* 参考http://www.opencv.org.cn/opencvdoc/2.3.2/html/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html
+* http://www.cnblogs.com/ronny/p/3387575.html
+*/
+Mat sobelOperator(const Mat src) {
+#if 1
+    char kernelGx[] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+    char kernelGy[] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+#else
+    char kernelGx[] = {-3, 0, 3, -10, 0, 10, -3, 0, 3};
+    char kernelGy[] = {-3, -10, -3, 0, 0, 0, 3, 10, 3};
+#endif
+    int nrow = src.rows;
+    int ncol = src.cols;
+    Mat dst = Mat::zeros(nrow, ncol, src.channels());
+    int i, j;
+    int m, n;
+    int gx, gy, sobelNum;
+    int index = 0;
+    const uchar* data_in = (uchar *)src.data;
+    uchar* data_out = (uchar *)dst.data;
+    for (i=1; i<nrow-1; i++) {
+        for (j=1; j<ncol-1; j++) {
+            gx = 0;
+            gy = 0;
+            for (m=i-1, index=0; m<=i+1; m++) {
+                for (n=j-1; n<=j+1; n++, index++) {
+                    /**
+                    * Gx=(z7+2*z8+z9)-(z1+2*z2+z3)
+                    * Gy=(z3+2*z6+z9)-(z1+2*z4+z7)
+                    */
+                    gx += data_in[m*ncol + n]*kernelGx[index];
+                    gy += data_in[m*ncol + n]*kernelGy[index];
+#if 1
+                    sobelNum = abs(gx) + abs(gy);
+#else
+                    sobelNum = sqrt(gx*gx + gy*gy);
+#endif
+                }
+            }
+            data_out[i*ncol + j] = sobelNum>255 ? 255 : sobelNum;
+        }
+    }
     return dst;
 }
 

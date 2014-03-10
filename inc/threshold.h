@@ -30,4 +30,10 @@ Mat adaptiveMatThreshold(const Mat src, int method);
 *@param sigma 标准差
 */
 Mat GaussianBlur(const Mat src, int k, double sigma);
+
+/**
+* sobel算子，计算图像边缘
+*@param 输入单通道Mat
+*/
+Mat sobelOperator(const Mat src);
 #endif

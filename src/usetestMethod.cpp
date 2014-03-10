@@ -16,14 +16,14 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 	Mat dstGray = changRGB2Gray(image);
-	Mat dstThreshold = matThreshold(dstGray);
-	Mat dstAThreshold = adaptiveMatThreshold(dstGray, USEOTSU);
-	Mat dstGaussianBlur = GaussianBlur(image, 2, 1.5);
+	Mat dstGaussianBlur = GaussianBlur(dstGray, 2, 1.5);
+	Mat dstSobel = sobelOperator(dstGaussianBlur);
+	Mat dstThreshold = matThreshold(dstSobel);
 	imshow("src", image);
 	imshow("gray", dstGray);
-	imshow("threshold", dstThreshold);
-	imshow("athreshold", dstAThreshold);
 	imshow("dstGaussianBlur", dstGaussianBlur);
+	imshow("dstSobel", dstSobel);
+	imshow("threshold", dstThreshold);
     waitKey(0);
 #if 0
 	Mat dstHE = rgbHistogramEqualizate(image, HE);
