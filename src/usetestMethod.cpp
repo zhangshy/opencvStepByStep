@@ -21,12 +21,17 @@ int main(int argc, char** argv) {
 	Mat dstGy = Mat::zeros(image.size(), CV_16SC1);
 	Mat dstSobel = sobelOperator(dstGaussianBlur, true, dstGx, dstGy);
 	Mat dstNms = nmsOperator(dstSobel, dstGx, dstGy);
-	Mat dstThreshold = matThreshold(dstSobel);
+	uchar threMax = otsu(dstNms);
+	uchar threMin = threMax/3;
+	cout << "max: " << (int)threMax << " ;min: " << (int)threMin << endl;
+	Mat dstHys = hysteresis(dstNms, threMin,threMax);
+	Mat dstThreshold = matThreshold(dstNms);
 	imshow("src", image);
 	imshow("gray", dstGray);
 	imshow("dstGaussianBlur", dstGaussianBlur);
 	imshow("dstSobel", dstSobel);
 	imshow("dstNms", dstNms);
+	imshow("dstHys", dstHys);
 	imshow("threshold", dstThreshold);
     waitKey(0);
 #if 0

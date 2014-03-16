@@ -438,3 +438,76 @@ Mat nmsOperator(const Mat src, const Mat Gx, const Mat Gy) {
     return dst;
 }
 
+/**
+* 滞后阈值: 最后一步，Canny 使用了滞后阈值，滞后阈值需要两个阈值(高阈值和低阈值):
+*
+* 如果某一像素位置的幅值超过 高 阈值, 该像素被保留为边缘像素。
+* 如果某一像素位置的幅值小于 低 阈值, 该像素被排除。
+* 如果某一像素位置的幅值在两个阈值之间,该像素仅仅在连接到一个高于 高 阈值的像素时被保留。
+* Canny 推荐的 高:低 阈值比在 2:1 到3:1之间。
+*/
+Mat hysteresis(const Mat src, uchar thresholdLower, uchar thresholdUpper) {
+    int nrow = src.rows;
+    int ncol = src.cols;
+    Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
+    int i, j;
+    const uchar* data_in = (uchar *)src.data;
+    uchar* data_out = (uchar *)dst.data;
+    uchar pixel_in;
+    /** 遍历第一遍将大于高阈值设为255，低于低阈值的设为0 */
+    for (i=0; i<nrow; i++) {
+        for (j=0; j<ncol; j++) {
+            pixel_in = data_in[i*ncol+j];
+            if (pixel_in>=thresholdUpper)
+                data_out[i*ncol+j] = 255;
+            else if (pixel_in<thresholdLower)
+                data_out[i*ncol+j] = 0;
+            else
+                data_out[i*ncol+j] = pixel_in;
+        }
+    }
+    /** 遍历第二遍将连接到高阈值的点保留 */
+#if 0
+    uchar g1, g2, g3, g4;   //上下左右周围的4个像素点
+    for (i=1; i<nrow-1; i++) {
+        for (j=1; j<ncol-1; j++) {
+            if ((data_out[i*ncol+j]!=0) && (data_out[i*ncol+j]!=255)) {
+                g1 = data_out[i*ncol-ncol+j];
+                g2 = data_out[i*ncol+ncol+j];
+                g3 = data_out[i*ncol+j-1];
+                g4 = data_out[i*ncol+j+1];
+//                cout << "gc: " << (int)data_out[i*ncol+j] << " ;g1: " << (int)g1 << \
+                    " ;g2: " << (int)g2 << " ;g3: " << (int)g3 << " ;g4: " << (int)g4 << endl;
+                if ((g1==255) || (g2==255) || (g3==255) || (g4==255)) {
+//                    cout << "data_out[i*ncol+j]: " << (int)data_out[i*ncol+j] << endl;
+                    data_out[i*ncol+j] = 255;
+                } else
+                    data_out[i*ncol+j] = 0;
+            }
+        }
+    }
+#else
+    uchar g1, g2, g3, g4, g5, g6, g7, g8;   //周围8个像素点
+    for (i=1; i<nrow-1; i++) {
+        for (j=1; j<ncol-1; j++) {
+            if ((data_out[i*ncol+j]!=0) && (data_out[i*ncol+j]!=255)) {
+                g1 = data_out[i*ncol-ncol+j-1];
+                g2 = data_out[i*ncol-ncol+j];
+                g3 = data_out[i*ncol-ncol+j+1];
+                g4 = data_out[i*ncol+j-1];
+                g5 = data_out[i*ncol+j+1];
+                g6 = data_out[i*ncol+ncol+j-1];
+                g7 = data_out[i*ncol+ncol+j];
+                g8 = data_out[i*ncol+ncol+j+1];
+                if ((g1==255) || (g2==255) || (g3==255) || (g4==255) || \
+                    (g5==255) || (g6==255) || (g7==255) || (g8==255)) {
+//                    cout << "data_out[i*ncol+j]: " << (int)data_out[i*ncol+j] << endl;
+                    data_out[i*ncol+j] = 255;
+                } else
+                    data_out[i*ncol+j] = 0;
+            }
+        }
+    }
+#endif
+    return dst;
+}
