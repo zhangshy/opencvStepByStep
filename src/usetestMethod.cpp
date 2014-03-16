@@ -17,12 +17,16 @@ int main(int argc, char** argv) {
 	}
 	Mat dstGray = changRGB2Gray(image);
 	Mat dstGaussianBlur = GaussianBlur(dstGray, 2, 1.5);
-	Mat dstSobel = sobelOperator(dstGaussianBlur);
+	Mat dstGx = Mat::zeros(image.size(), CV_16SC1);
+	Mat dstGy = Mat::zeros(image.size(), CV_16SC1);
+	Mat dstSobel = sobelOperator(dstGaussianBlur, true, dstGx, dstGy);
+	Mat dstNms = nmsOperator(dstSobel, dstGx, dstGy);
 	Mat dstThreshold = matThreshold(dstSobel);
 	imshow("src", image);
 	imshow("gray", dstGray);
 	imshow("dstGaussianBlur", dstGaussianBlur);
 	imshow("dstSobel", dstSobel);
+	imshow("dstNms", dstNms);
 	imshow("threshold", dstThreshold);
     waitKey(0);
 #if 0

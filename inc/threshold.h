@@ -35,5 +35,10 @@ Mat GaussianBlur(const Mat src, int k, double sigma);
 * sobel算子，计算图像边缘
 *@param 输入单通道Mat
 */
-Mat sobelOperator(const Mat src);
+Mat sobelOperator(const Mat src, bool getGxGy = false, Mat Gx = Mat::zeros(1, 1, CV_16SC1), Mat Gy = Mat::zeros(1, 1, CV_16SC1));
+
+/**
+*Non-Maximum Suppression 非极大值抑制
+*/
+Mat nmsOperator(const Mat src, const Mat Gx, const Mat Gy);
 #endif

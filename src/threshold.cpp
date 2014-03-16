@@ -254,10 +254,11 @@ Mat GaussianBlur(const Mat src, int k, double sigma) {
 /**
 * sobel算子，计算图像边缘
 *@param 输入单通道Mat
+*@param 存储各个像素点的gx和gy梯度；opencv中CV_16SC2定义参考：http://docs.opencv.org/java/org/opencv/core/CvType.html
 * 参考http://www.opencv.org.cn/opencvdoc/2.3.2/html/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html
 * http://www.cnblogs.com/ronny/p/3387575.html
 */
-Mat sobelOperator(const Mat src) {
+Mat sobelOperator(const Mat src, bool getGxGy, Mat Gx, Mat Gy) {
 #if 1
     char kernelGx[] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
     char kernelGy[] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
@@ -274,7 +275,13 @@ Mat sobelOperator(const Mat src) {
     int index = 0;
     const uchar* data_in = (uchar *)src.data;
     uchar* data_out = (uchar *)dst.data;
+    short* data_Gx = NULL;
+    short* data_Gy = NULL;
     for (i=1; i<nrow-1; i++) {
+        if (getGxGy) {
+            data_Gx = (short *)Gx.ptr<short>(i);
+            data_Gy = (short *)Gy.ptr<short>(i);
+        }
         for (j=1; j<ncol-1; j++) {
             gx = 0;
             gy = 0;
@@ -286,16 +293,148 @@ Mat sobelOperator(const Mat src) {
                     */
                     gx += data_in[m*ncol + n]*kernelGx[index];
                     gy += data_in[m*ncol + n]*kernelGy[index];
-#if 1
-                    sobelNum = abs(gx) + abs(gy);
-#else
-                    sobelNum = sqrt(gx*gx + gy*gy);
-#endif
                 }
             }
+            if (getGxGy) {
+//                Vec2s &gxgyPixel = gxgy.at<Vec2s>(i, j);
+                data_Gx[j] = gx;
+                data_Gy[j] = gy;
+            }
+
+#if 1
+            sobelNum = abs(gx) + abs(gy);
+#else
+            sobelNum = sqrt(gx*gx + gy*gy);
+#endif
             data_out[i*ncol + j] = sobelNum>255 ? 255 : sobelNum;
         }
     }
+    return dst;
+}
+
+/**
+* 线性插值
+*   g1------gc---------------------g2
+*@param g1, g2为相邻两个像素点的值，距离为1
+*@param dWeight 插值权重为gc到g1的距离
+*@return 亚像素点gc的值
+*/
+inline uchar linearInterpolation(uchar g1, uchar g2, float dWeight) {
+//    cout << " ;g1: " << (int)g1 << " ;g2: " << (int)g2 << " ;dWeight: " << dWeight << endl;
+    return (g2-g1)*dWeight + g1;
+}
+/**
+*Non-Maximum Suppression 非极大值抑制
+*/
+Mat nmsOperator(const Mat src, const Mat Gx, const Mat Gy) {
+    int nrow = src.rows;
+    int ncol = src.cols;
+    Mat dst = Mat::zeros(nrow, ncol, CV_8UC1);
+    int i, j;
+    const uchar* data_in = (uchar *)src.data;
+    uchar* data_out = NULL;
+    const short* data_Gx = NULL;
+    const short* data_Gy = NULL;
+    short gx, gy;   //x, y方向梯度
+    uchar dTmp1, dTmp2; //亚像素点
+    uchar g1, g2, g3, g4, gc;
+    float dWeight;  //插值权重
+    for (i=0; i<nrow; i++) {
+        data_Gx = (short *)Gx.ptr<short>(i);
+        data_Gy = (short *)Gy.ptr<short>(i);
+        data_out = (uchar *)dst.ptr<uchar>(i);
+        for (j=0; j<ncol; j++) {
+            gx = data_Gx[j];
+            gy = data_Gy[j];
+            gc = data_in[i*ncol + j];
+            //通过线性插值得到亚像素点的值
+            if (((gx>0)&&(gy>0)) || ((gx<0)&&(gy<0))) {
+                gx = abs(gx);   //取绝对值
+                gy = abs(gy);
+                /**
+                * 情况1.
+                *               g2
+                *       g3  gc  g1
+                *       g4
+                */
+                if (gx>=gy) {
+                    g1 = data_in[i*ncol+j+1];
+                    g2 = data_in[i*ncol-ncol+j+1];
+                    g3 = data_in[i*ncol+j-1];
+                    g4 = data_in[i*ncol+ncol+j-1];
+                    dWeight = gy*1.0/gx;
+                    dTmp1 = linearInterpolation(g1, g2, dWeight);
+                    dTmp2 = linearInterpolation(g3, g4, dWeight);
+                } else {
+                /**
+                * 情况2.
+                *           g1  g2
+                *           gc
+                *       g4  g3
+                */
+                    g1 = data_in[i*ncol-ncol+j];
+                    g2 = data_in[i*ncol+j+1];
+                    g3 = data_in[i*ncol+j-1];
+                    g4 = data_in[i*ncol+ncol+j-1];
+                    dWeight = gx*1.0/gy;
+                    dTmp1 = linearInterpolation(g1, g2, dWeight);
+                    dTmp2 = linearInterpolation(g3, g4, dWeight);
+                }
+            } else if (gx==0){
+                dTmp1 = data_in[i*ncol-ncol+j];
+                dTmp2 = data_in[i*ncol+ncol+j];
+            } else if (gy==0) {
+                dTmp1 = data_in[i*ncol+j-1];
+                dTmp2 = data_in[i*ncol+j+1];
+            }else {
+                gx = abs(gx);   //取绝对值
+                gy = abs(gy);
+                /**
+                * 情况3.
+                *       g2  g1
+                *           gc
+                *           g3  g4
+                */
+                if (gy>=gx) {
+                    g1 = data_in[i*ncol-ncol+j];
+                    g2 = data_in[i*ncol-ncol+j-1];
+                    g3 = data_in[i*ncol+ncol+j];
+                    g4 = data_in[i*ncol+ncol+j+1];
+                    dWeight = gx*1.0/gy;
+                    dTmp1 = linearInterpolation(g1, g2, dWeight);
+                    dTmp2 = linearInterpolation(g3, g4, dWeight);
+                } else {
+                /**
+                * 情况4.
+                *       g2
+                *       g1  gc  g3
+                *               g4
+                */
+                    g1 = data_in[i*ncol+j-1];
+                    g2 = data_in[i*ncol-ncol+j-1];
+                    g3 = data_in[i*ncol+j+1];
+                    g4 = data_in[i*ncol+ncol+j+1];
+                    dWeight = gy*1.0/gx;
+                    dTmp1 = linearInterpolation(g1, g2, dWeight);
+                    dTmp2 = linearInterpolation(g3, g4, dWeight);
+                }
+            }   //结束亚像素点的计算
+//            cout << "gc: " << (int)gc << " ;g1: " << (int)g1 << " ;g2: " << (int)g2 << endl;
+            //保留下不小于旁边俩个亚像素点的像素点的值
+            if ((gc>=dTmp1) && (gc>=dTmp2)) {
+//                data_out[j] = 128;
+                data_out[j] = gc;
+#if 0
+                ///三个点同时相等的时候应不应该置0？？？？
+                if ((gc==dTmp1)&&(gc==dTmp2))
+                    data_out[j] = 0;
+#endif
+//                cout << "gc: " << (int)gc << " ;g1: " << (int)g1 << " ;g2: " << (int)g2 << endl;
+            } else {
+                data_out[j] = 0;
+            }   //结束第i行的遍历
+        }
+    }   //结束图像像素点遍历
     return dst;
 }
 
